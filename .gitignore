@@ -36,3 +36,7 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+sentinel.db
+terminal.txt
+explicacion_code.txt
+informacion.txt
