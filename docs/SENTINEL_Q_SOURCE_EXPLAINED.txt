@@ -1,0 +1,105 @@
+
+======================================================================
+           PROYECTO SENTINEL-Q: CÓDIGO FUENTE COMENTADO (FASE 2)
+======================================================================
+
+1. ARCHIVO: src/sentinel/config.py
+----------------------------------------------------------------------
+from pydantic_settings import BaseSettings # Importa la lógica para leer archivos .env
+
+class Settings(BaseSettings): # Clase que define qué variables esperamos
+    app_name: str = "Sentinel-Q" # Nombre de la app, por defecto Sentinel-Q
+    app_version: str = "0.1.0"   # Versión inicial
+    debug: bool = False          # Modo desarrollo (True/False)
+
+    class Config:
+        env_file = ".env" # Instrucción para buscar automáticamente el archivo .env
+
+settings = Settings() # Instancia única (Singleton) para usar en toda la app
+
+2. ARCHIVO: src/sentinel/domain/models.py
+----------------------------------------------------------------------
+from pydantic import BaseModel, HttpUrl # Herramientas de validación de datos
+from datetime import datetime           # Para manejar marcas de tiempo
+from typing import Optional             # Para campos que pueden ser nulos
+
+class ServiceTarget(BaseModel): # La "Entidad" principal de nuestro sistema
+    id: str                     # ID único (ej: 'google-check')
+    name: str                   # Nombre amigable
+    url: HttpUrl                # Valida que sea una URL válida (ej: https://...)
+    check_interval: int = 60    # Cada cuántos segundos vigilamos
+    is_active: bool = True      # Si la vigilancia está encendida
+    last_check: Optional[datetime] = None # Cuándo fue la última revisión
+    status_code: Optional[int] = None     # Resultado de la última revisión (200, 404, etc)
+
+3. ARCHIVO: src/sentinel/infrastructure/http_client.py
+----------------------------------------------------------------------
+import httpx # Cliente HTTP moderno y asíncrono
+from loguru import logger # Sistema de logs profesional
+
+class HTTPClient: # Capa que toca el internet
+    async def check_status(self, url: str) -> int:
+        # 'async with' asegura que la conexión se cierre sola al terminar
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(url) # Intenta obtener la página
+                return response.status_code      # Devuelve el código (ej: 200)
+            except Exception as e:
+                # Si falla (sin internet, DNS mal), logueamos el error
+                logger.error(f"Error conectando a {url}: {str(e)}")
+                return 0 # Devolvemos 0 como señal de error controlado
+
+4. ARCHIVO: src/sentinel/application/checker.py
+----------------------------------------------------------------------
+from sentinel.domain.models import ServiceTarget # Importamos el modelo
+from sentinel.infrastructure.http_client import HTTPClient # Importamos el cliente
+from loguru import logger
+from datetime import datetime
+
+class StatusChecker: # El "Cerebro" que une la idea con la herramienta
+    def __init__(self):
+        self.client = HTTPClient() # Inyectamos el cliente de infraestructura
+
+    async def execute(self, target: ServiceTarget) -> ServiceTarget:
+        logger.info(f"Vigilando: {target.name} ({target.url})")
+        
+        # Llamamos al cliente y esperamos el resultado (await)
+        status = await self.client.check_status(str(target.url))
+        
+        # Actualizamos la información en el objeto
+        target.status_code = status
+        target.last_check = datetime.now()
+        
+        # Decidimos qué log mostrar basado en el resultado
+        if status == 200:
+            logger.success(f"SISTEMA ONLINE: {target.name}")
+        else:
+            logger.warning(f"ALERTA: {target.name} reporta estado {status}")
+            
+        return target # Devolvemos el objeto actualizado
+
+5. ARCHIVO: src/sentinel/main.py
+----------------------------------------------------------------------
+from fastapi import FastAPI # El framework web
+from loguru import logger   # Los logs
+from sentinel.config import settings # Nuestra configuración
+from sentinel.application.checker import StatusChecker # El caso de uso
+from sentinel.domain.models import ServiceTarget       # El modelo
+
+app = FastAPI(title=settings.app_name, version=settings.app_version) # Iniciamos API
+
+@app.on_event("startup") # Esto corre justo cuando el servidor enciende
+async def startup_event():
+    logger.info(f"--- {settings.app_name} V.{settings.app_version} INICIADO ---")
+
+@app.get("/health") # Ruta simple para saber si el servidor responde
+def health_check():
+    return {"status": "operational"}
+
+@app.post("/check-once") # Ruta para probar un chequeo manualmente
+async def check_once(target: ServiceTarget):
+    checker = StatusChecker() # Creamos el ejecutor
+    updated_target = await checker.execute(target) # Ejecutamos
+    return updated_target # Respondemos al usuario con el resultado
+
+======================================================================

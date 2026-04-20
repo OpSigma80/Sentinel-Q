@@ -1,0 +1,130 @@
+Entendido, Arquitecto. Como **Senior Systems Builder**, el cierre de una fase de desarrollo no termina con el código funcionando, sino con la **documentación técnica y el manual de operaciones** que permitan a cualquier ingeniero (o a ti mismo en el futuro) entender, mantener y escalar la solución.
+
+Aquí tienes el **Blueprint Maestro de Sentinel-Q (Fase 1: Estabilidad e Integración)**.
+
+---
+
+## 1. El Código: Arquitectura y Lógica de Construcción
+
+### A. `src/sentinel/config.py` (El Cerebro)
+Este archivo centraliza la verdad del sistema. Usamos `pydantic-settings` porque valida que las variables existan antes de que el código falle.
+
+```python
+import os
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+load_dotenv() # Carga el archivo .env a las variables de entorno de Linux
+
+class Settings(BaseSettings):
+    # APP CORE: Identidad del sistema para logs y headers
+    APP_NAME: str = "Sentinel-Q"
+    APP_VERSION: str = "0.1.0"
+    
+    # SECURITY: X-Sentinel-Key. Usamos os.getenv para leer del .env
+    # El segundo parámetro es un "fallback" por si olvidas configurar el .env
+    API_KEY: str = os.getenv("API_KEY", "SENTINEL_PRO_SECRET_2026_V1")
+    
+    # TELEGRAM: Credenciales críticas para el puente de comunicación
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN")
+    CHAT_ID: str = os.getenv("CHAT_ID")
+    
+    # DATABASE: El "Connection String" para PostgreSQL
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
+    
+    # LOGGING: Parámetros de rotación de archivos para no llenar el disco de la iMac
+    LOG_LEVEL: str = "INFO"
+    LOG_ROTATION: str = "10 MB"
+    LOG_RETENTION: str = "10 days"
+
+    class Config:
+        # Importante: case_sensitive=False permite que si en .env 
+        # escribes 'bot_token', Pydantic lo asigne a 'BOT_TOKEN' automáticamente.
+        case_sensitive = False 
+
+settings = Settings()
+```
+
+### B. `src/sentinel/application/notifier.py` (El Emisor)
+Este es un **Adapter**. Su única responsabilidad es transformar un evento de fallo en un mensaje de red hacia Telegram.
+
+```python
+import httpx
+from loguru import logger
+from datetime import datetime
+from sentinel.config import settings
+
+class AlertNotifier:
+    def __init__(self):
+        # Inyectamos las credenciales desde el objeto central de configuración
+        self.token = settings.BOT_TOKEN
+        self.chat_id = settings.CHAT_ID
+        self.api_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+
+    async def notify_failure(self, service_name: str, url: str, status: str):
+        # Construimos el mensaje usando Markdown para que en Telegram se vea profesional
+        msg = (
+            f"🚨 *SENTINEL-Q ALERT*\n\n"
+            f"❌ *Service:* `{service_name}`\n"
+            f"🌐 *URL:* {url}\n"
+            f"⚠️ *Status:* {status}\n"
+            f"⏰ *Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+        async with httpx.AsyncClient() as client:
+            try:
+                # Payload: lo que Telegram espera recibir
+                payload = {"chat_id": self.chat_id, "text": msg, "parse_mode": "Markdown"}
+                response = await client.post(self.api_url, json=payload, timeout=10.0)
+                
+                if response.status_code == 200:
+                    logger.success(f"✅ Alerta entregada para {service_name}")
+                else:
+                    # Si falla, logueamos el error de la API (ej: 404, 401)
+                    logger.error(f"❌ Error API Telegram: {response.text}")
+            except Exception as e:
+                logger.error(f"Fallo de red en el notificador: {e}")
+```
+
+### C. `src/sentinel/main.py` (El Corazón/Orquestador)
+Aquí es donde FastAPI recibe las órdenes y las pasa al Scheduler.
+
+```python
+from fastapi import FastAPI, Depends, Header, HTTPException
+from loguru import logger
+from sentinel.config import settings
+from sentinel.application.scheduler import SentinelScheduler
+from sentinel.domain.models import ServiceTarget
+
+app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
+scheduler = SentinelScheduler() # Instancia global del motor de vigilancia
+
+# Middleware de Seguridad: Compara el Header con la API_KEY del config
+async def verify_api_key(x_sentinel_key: str = Header(None)):
+    if x_sentinel_key != settings.API_KEY:
+        raise HTTPException(status_code=403, detail="Key Inválida")
+
+@app.on_event("startup")
+async def startup_event():
+    # El sistema solo se declara funcional si el Scheduler arranca
+    scheduler.start()
+    logger.success("SISTEMA OPERACIONAL")
+
+@app.get("/status")
+async def get_status():
+    # Health check para monitorear el contenedor desde fuera
+    return {"status": "online", "scheduler": scheduler.scheduler.running}
+
+@app.post("/watch", dependencies=[Depends(verify_api_key)])
+async def watch_service(target: ServiceTarget):
+    # Registra un 'Job' en el Scheduler
+    scheduler.add_target_watch(target)
+    return {"status": "active", "id": target.id}
+
+@app.delete("/terminate/{target_id}", dependencies=[Depends(verify_api_key)])
+async def stop_watch(target_id: str):
+    # Elimina el 'Job' de la memoria para detener las alertas
+    success = scheduler.remove_target_watch(target_id)
+    return {"status": "terminated"} if success else {"status": "not_found"}
+```
+

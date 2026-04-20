@@ -1,0 +1,24 @@
+
+==========================================================
+SENTINEL-Q: MANUAL DE CONSTRUCCIÓN - FASE 3 (SCHEDULER)
+==========================================================
+
+OBJETIVO: Convertir el sistema en un centinela autónomo.
+
+CÓDIGO EXPLICADO:
+1. APScheduler: Motor asíncrono que corre tareas en segundo plano.
+2. AsyncIOScheduler: Elegido porque comparte el 'event loop' con FastAPI.
+3. SentinelScheduler.add_target_watch: 
+   - Toma un ID único.
+   - Usa 'replace_existing=True' para evitar fugas de memoria por tareas duplicadas.
+   - Pasa el objeto 'ServiceTarget' completo como argumento.
+
+PASOS DE EJECUCIÓN:
+1. Instalar apscheduler: 'pip install apscheduler'
+2. Crear scheduler.py en application/
+3. Modificar main.py para iniciar el scheduler en el evento 'startup'.
+
+SITUACIÓN ACTUAL: El sistema vigila automáticamente, pero solo en memoria.
+PRÓXIMA AMENAZA: Si el servidor se apaga, los servicios a vigilar se pierden.
+SOLUCIÓN FASE 4: Persistencia con Base de Datos.
+==========================================================

@@ -1,0 +1,18 @@
+
+==========================================================
+        GUÍA DE PRUEBAS DE ESTRÉS Y ALERTAS
+==========================================================
+
+OBJETIVO: Validar el flujo end-to-end de Sentinel-Q.
+
+PROCEDIMIENTO:
+1. Usar POST /watch con una URL de dominio inválido.
+2. Monitorear logs de terminal para confirmar el error 11001 (DNS).
+3. Verificar la creación de la fila en 'incident_history'.
+4. Confirmar recepción de Push Notification en Telegram.
+
+SÍNTOMAS DE ÉXITO:
+- Terminal: Log nivel CRITICAL visible.
+- DB: Nueva entrada en la tabla de incidentes.
+- Móvil: Notificación con formato Markdown (negritas y emojis).
+==========================================================

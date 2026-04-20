@@ -1,0 +1,23 @@
+
+======================================================================
+           SENTINEL-Q: DISECCIÓN DE LA CAPA DE PERSISTENCIA
+======================================================================
+
+FLUJO DE DATOS:
+1. Pydantic (Domain Model): Valida los datos que entran por la API.
+2. SQLAlchemy (ORM Model): Estructura los datos para el archivo .db.
+3. Repository: Traduce entre ambos y ejecuta la persistencia.
+
+POR QUÉ ESTA ESTRUCTURA:
+- Escalabilidad: Si queremos cambiar SQLite por PostgreSQL, solo cambiamos 
+  la URL en database.py. El resto del código no se toca.
+- Seguridad: Al usar SQLAlchemy, estamos protegidos contra ataques 
+  de SQL Injection automáticamente.
+- Robustez: El uso de 'get_db' como generador (yield) garantiza que 
+  nunca dejaremos conexiones abiertas que agoten la memoria.
+
+Línea Clave: self.db.merge(db_target)
+En sistemas de vigilancia, los usuarios suelen enviar el mismo objetivo 
+varias veces para cambiar el intervalo. 'merge' evita errores de 
+'ID Duplicado' y mantiene el sistema fluido.
+======================================================================

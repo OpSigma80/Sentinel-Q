@@ -1,0 +1,6 @@
+postgres_data/
+venv/
+__pycache__/
+*.pyc
+.env
+.git/

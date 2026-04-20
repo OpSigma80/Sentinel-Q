@@ -1,0 +1,38 @@
+# Entorno virtual Python
+venv/
+.venv/
+env/
+
+# Datos de PostgreSQL (volumen de Docker/Postgres, no va al repo nunca)
+postgres_data/
+
+# Core dumps del sistema
+core.*
+*.core
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,34 @@
+
+==========================================================
+SENTINEL-Q: MANUAL DE CONSTRUCCIÓN - FASE 1 & 2
+==========================================================
+
+PASOS REALIZADOS:
+1. Setup de Entorno: Creación de estructura Hexagonal en Windows.
+2. Contrato de Sistema: Configuración de dependencias vía pyproject.toml.
+3. Definición de Dominio: Modelado de 'ServiceTarget' con Pydantic.
+4. Capa de Red: Implementación de cliente asíncrono httpx.
+5. Lógica de Negocio: Creación del StatusChecker.
+
+----------------------------------------------------------
+DOCUMENTACIÓN DEL CÓDIGO (Línea por Línea)
+----------------------------------------------------------
+
+[MAIN.PY]
+- app = FastAPI(): Crea la instancia del servidor web.
+- @app.on_event("startup"): Ejecuta procesos antes de aceptar tráfico.
+- @app.post("/check-once"): Endpoint de prueba para validar la conexión.
+
+[CONFIG.PY]
+- BaseSettings: Clase que mapea el archivo .env a variables de Python.
+- env_file = ".env": Indica dónde buscar los secretos.
+
+[LOGS Y COMANDOS]
+- uvicorn sentinel.main:app: 
+    * 'sentinel.main' -> busca la carpeta src/sentinel y el archivo main.
+    * 'app' -> es la variable que creamos en main.py.
+- --reload: Reinicia el sistema automáticamente al detectar cambios.
+
+ESTADO ACTUAL: Funcional y Asíncrono.
+PRÓXIMO OBJETIVO: Automatización (Scheduler) y Persistencia (DB).
+==========================================================

@@ -1,0 +1,21 @@
+
+======================================================================
+           SENTINEL-Q: MANUAL DE CONSTRUCCIÓN - FASE 5 (ALERTING)
+======================================================================
+
+1. NOTIFIER.PY:
+   - notify_failure: Un método asíncrono para no bloquear la vigilancia. 
+   - logger.critical: Se usa este nivel para que el sistema de logs pueda 
+     enviar estos mensajes a un archivo aparte o base de datos de errores.
+
+2. CHECKER.PY (ACTUALIZADO):
+   - Integración: Ahora el Checker tiene una dependencia de AlertNotifier.
+   - Condicional de Alerta: Solo se dispara si status != 200. Esto evita 
+     el "ruido" de alertas innecesarias cuando todo va bien.
+
+POR QUÉ ESTA ESTRUCTURA:
+Al separar el Notifier en su propia clase, estamos aplicando el principio 
+de Responsabilidad Única (SRP). El Checker detecta el fallo, el Notifier 
+lo comunica. Mañana podrías tener varios noticieros (Telegram, SMS, Mail) 
+sin cambiar una sola línea del Checker.
+======================================================================

@@ -1,0 +1,47 @@
+
+==========================================================
+SENTINEL-Q: DISECCIÓN TÉCNICA BAJO EL MANIFIESTO
+==========================================================
+
+1. ARCHIVO: __init__.py (En cada carpeta src)
+----------------------------------------------------------
+- Contenido: Generalmente vacío.
+- Explicación: Indica a Python que ese directorio es un 'paquete'. Sin esto, 
+  no podrías hacer 'import sentinel'. Es lo que convierte carpetas en módulos.
+
+2. ARCHIVO: pyproject.toml
+----------------------------------------------------------
+[build-system]: Define qué herramientas se usan para empaquetar el proyecto.
+[project]: 
+  - name: Identificador oficial del sistema.
+  - requires-python: Restricción de seguridad para asegurar que se usa v3.14.
+  - dependencies: Lista de materiales (FastAPI, Loguru, etc.). Sin esto, el sistema no respira.
+[tool.setuptools]: Le dice al instalador que el código real está en la carpeta 'src'.
+
+3. ARCHIVO: .env
+----------------------------------------------------------
+- Explicación: Es el almacén de secretos y variables de entorno. 
+- Por qué: NUNCA ponemos claves o configuraciones fijas en el código. El .env 
+  permite que el mismo código funcione en tu PC o en un servidor Pro sin cambios.
+
+4. ARCHIVO: config.py (Pydantic Settings)
+----------------------------------------------------------
+class Settings(BaseSettings): -> Define la "forma" que deben tener tus variables.
+app_name: str = "Sentinel-Q" -> Si la variable no está en el .env, usa este valor por defecto.
+class Config: env_file = ".env" -> Instrucción para que Pydantic lea el archivo automáticamente.
+settings = Settings() -> Instancia única (Singleton) para usar en todo el sistema.
+
+5. ARCHIVO: main.py
+----------------------------------------------------------
+app = FastAPI(...): Crea el motor web.
+@app.on_event("startup"): Código que se ejecuta ANTES de recibir la primera visita.
+logger.info(...): Registro profesional de actividad (mejor que print).
+@app.get("/health"): El "latido" del sistema. Indica si el servicio está vivo.
+
+6. EL COMANDO: uvicorn sentinel.main:app --reload
+----------------------------------------------------------
+uvicorn: Es el servidor de alto rendimiento (ASGI) que traduce HTTP a Python asíncrono.
+sentinel.main: Busca el paquete 'sentinel' y el archivo 'main.py'.
+:app: Busca la variable llamada 'app' dentro de ese archivo.
+--reload: Modo desarrollo. Si guardas un cambio, el servidor se reinicia solo.
+==========================================================

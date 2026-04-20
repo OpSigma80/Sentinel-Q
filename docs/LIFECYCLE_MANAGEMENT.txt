@@ -1,0 +1,19 @@
+
+==========================================================
+        SENTINEL-Q: GESTIÓN DE CICLO DE VIDA
+==========================================================
+
+1. ENDPOINT: DELETE /stop/{target_id}
+   Este es el comando de "Retirada". Se usa cuando un 
+   microservicio entra en mantenimiento o se retira 
+   permanentemente.
+
+2. IMPACTO TÉCNICO:
+   - Capa Memoria: El hilo de ejecución APScheduler se detiene.
+   - Capa Datos: Se elimina la fila en la tabla 'services'.
+   - Capa Historial: Los incidentes pasados NO se borran 
+     (se mantienen para auditoría histórica).
+
+3. RECOMENDACIÓN:
+   Usar el ID exacto definido en el momento del /watch.
+==========================================================

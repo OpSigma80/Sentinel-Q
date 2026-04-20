@@ -1,0 +1,50 @@
+cd ~/dev/data-forge/Sentinel-Q # para la terminal activar
+
+Ejecuta estos para aislar el proyecto:
+cd ~/dev/data-forge/Sentinel-Q
+
+source venv/bin/activate
+
+
+## 2. Manual de Operaciones: El Orden de Comando
+
+Guarda esta tabla. Es tu "Cheat Sheet" para operar Sentinel-Q desde tus dos terminales.
+
+### 🐧 Terminal Debian 13 (Gestión de Infraestructura)
+
+| Acción | Comando | Por qué usarlo |
+| :--- | :--- | :--- |
+| **Limpieza Total** | `docker compose down --volumes` | Borra contenedores, redes y datos temporales. Úsalo para "resetear" todo. |
+| **Construcción** | `docker compose up -d --build` | Lee cambios en el código y el `.env`, y levanta el sistema en segundo plano. |
+| **Auditoría** | `docker logs -f sentinel_app_container` | Ver en tiempo real qué está haciendo el sistema y si hay errores. |
+| **Reinicio Rápido** | `docker compose restart app` | Reinicia solo el código Python (limpia la RAM/Scheduler). |
+
+### 🪟 Windows PowerShell (Gestión de Objetivos)
+
+| Acción | Comando (Resumido) | Por qué usarlo |
+| :--- | :--- | :--- |
+| **Comprobar Salud** | `Invoke-RestMethod http://192.168.1.216:8000/status` | Verifica si la iMac está respondiendo antes de enviar órdenes. |
+| **Iniciar Vigilancia**| `Invoke-RestMethod -Method Post ... -Body $body` | Envía un nuevo target al sistema para que empiece a monitorear. |
+| **Detener Alerta** | `Invoke-RestMethod -Method Delete .../terminate/ID` | Detiene el bombardeo de Telegram para un ID específico. |
+
+$headers = @{ "X-Sentinel-Key" = "SENTINEL_PRO_SECRET_2026_V1" }
+
+$headers = @{ 
+    "X-Sentinel-Key" = "SENTINEL_PRO_SECRET_2026_V1" 
+}
+
+$body = @{
+    id = "TEST-FINAL-01"
+    name = "Sentinel Final Check"
+    url = "https://url-que-no-existe.com"
+    check_interval = 30
+    is_active = $true
+} | ConvertTo-Json
+
+# Nota: Quitamos el @() del -Body y usamos -ContentType
+Invoke-RestMethod -Uri "http://192.168.1.216:8000/watch" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+
+# Usamos el método DELETE y el ID exacto que creamos
+Invoke-RestMethod -Uri "http://192.168.1.216:8000/terminate/TEST-FINAL-01" -Method Delete -Headers $headers
+
+

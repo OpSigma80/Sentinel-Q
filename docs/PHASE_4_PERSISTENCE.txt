@@ -1,0 +1,22 @@
+
+======================================================================
+           SENTINEL-Q: MANUAL DE CONSTRUCCIÓN - FASE 4 (DATABASE)
+======================================================================
+
+1. TECNOLOGÍA: SQLAlchemy con SQLite.
+2. PATRÓN REPOSITORY: Separamos la lógica de SQL de la lógica de negocio.
+3. FLUJO DE PERSISTENCIA:
+   API (POST /watch) -> Repositorio (Guardar en DB) -> Scheduler (Programar tarea).
+
+COMPONENTES CLAVE:
+- database.py: Configura el motor y la fábrica de sesiones.
+- orm_models.py: Define la estructura de la tabla 'services'.
+- repository.py: Contiene el método 'merge', que decide si crear o actualizar.
+
+PRUEBA DE ROBUSTEZ:
+1. Agregue un servicio con /watch.
+2. Verifique que el log lo vigile.
+3. Apague el servidor (Ctrl+C).
+4. Encienda el servidor de nuevo.
+5. RESULTADO ESPERADO: El log debe mostrar 'Reactivada vigilancia persistente'.
+======================================================================
