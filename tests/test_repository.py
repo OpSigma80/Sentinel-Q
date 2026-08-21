@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sentinel.domain.models import ServiceTarget
 from sentinel.infrastructure.orm_models import ServiceMetricsTable
+from sentinel.services.analytics_service import AnalyticsService
 
 
 class TestTargetRepositoryCreate:
@@ -113,7 +114,7 @@ class TestHealthScore:
         for _ in range(10):
             repository.add_metric(saved.id, status_code=200, response_time_ms=50)
         
-        score = repository.calculate_health_score(saved.id)
+        score = AnalyticsService(test_db).calculate_health_score(saved.id)
         assert score > 80  # Score alto con uptime perfecto
     
     def test_health_score_with_failures(self, test_db, repository, sample_target_data):
@@ -128,7 +129,7 @@ class TestHealthScore:
         for _ in range(3):
             repository.add_metric(saved.id, status_code=500, response_time_ms=5000)
         
-        score = repository.calculate_health_score(saved.id)
+        score = AnalyticsService(test_db).calculate_health_score(saved.id)
         assert 0 < score < 100  # Score intermedio
     
     def test_health_score_no_metrics(self, repository, sample_target_data):
@@ -136,7 +137,7 @@ class TestHealthScore:
         target = ServiceTarget(**sample_target_data)
         saved = repository.save_target(target)
         
-        score = repository.calculate_health_score(saved.id)
+        score = AnalyticsService(repository.db).calculate_health_score(saved.id)
         assert score == 50.0  # Score neutro
 
 
@@ -180,7 +181,7 @@ class TestTargetStatistics:
         for rt in response_times:
             repository.add_metric(saved.id, status_code=200, response_time_ms=rt)
         
-        stats = repository.get_target_statistics(saved.id)
+        stats = AnalyticsService(repository.db).get_target_statistics(saved.id)
         
         assert stats["total_checks"] == 5
         assert stats["uptime_percent"] == 100.0
@@ -193,7 +194,7 @@ class TestTargetStatistics:
         target = ServiceTarget(**sample_target_data)
         saved = repository.save_target(target)
         
-        stats = repository.get_target_statistics(saved.id)
+        stats = AnalyticsService(repository.db).get_target_statistics(saved.id)
         
         assert stats["total_checks"] == 0
         assert stats["uptime_percent"] == 0

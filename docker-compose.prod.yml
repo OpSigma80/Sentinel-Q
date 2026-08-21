@@ -1,0 +1,137 @@
+# Production Docker Compose — Sentinel-Q
+#
+# Key differences from docker-compose.yml (dev):
+#   - No bind mounts (.:/app removed)
+#   - Postgres port NOT exposed publicly (internal network only)
+#   - App port NOT exposed directly (Caddy handles 80/443)
+#   - Named volumes for persistent data
+#   - restart: unless-stopped on all services
+#   - Resource limits tuned for a single VPS
+#
+# Usage:
+#   cp .env.example .env && nano .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Dashboard is included but optional — see notes in dashboard service below.
+
+services:
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL — internal network only, no public port
+  # ─────────────────────────────────────────────
+  db:
+    image: postgres:15
+    container_name: sentinel_db_container
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    # ⚠️  NO ports: section — DB is NOT exposed to the host or internet
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sentinel_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    mem_limit: 256m
+    cpus: "0.5"
+
+  # ─────────────────────────────────────────────
+  # FastAPI application — internal only, Caddy proxies to it
+  # ─────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentinel_app_container
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    expose:
+      - "8000"
+    # No volumes — image is self-contained
+    networks:
+      - sentinel_internal
+    healthcheck:
+      # Python-based check — no curl required in the image
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    mem_limit: 384m
+    cpus: "0.5"
+
+  # ─────────────────────────────────────────────
+  # Streamlit dashboard — DISABLED BY DEFAULT
+  #
+  # The dashboard requires ~300MB RAM and is NOT needed for the API.
+  # Default profile: 1GB VPS — dashboard is commented out.
+  #
+  # To enable on a 2GB+ VPS:
+  #   1. Uncomment the entire dashboard block below.
+  #   2. Uncomment the dashboard block in deploy/Caddyfile.
+  #   3. Rebuild: docker compose -f docker-compose.prod.yml up -d --build
+  # ─────────────────────────────────────────────
+  # dashboard:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dashboard
+  #   container_name: sentinel_dashboard
+  #   restart: unless-stopped
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   env_file: .env
+  #   expose:
+  #     - "8501"
+  #   networks:
+  #     - sentinel_internal
+  #   mem_limit: 300m
+  #   cpus: "0.3"
+
+  # ─────────────────────────────────────────────
+  # Caddy — reverse proxy with automatic HTTPS
+  # Reads domain from deploy/Caddyfile
+  # ─────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: sentinel_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - sentinel_internal
+    depends_on:
+      - app
+    mem_limit: 128m
+    cpus: "0.2"
+
+# ─────────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────────
+networks:
+  sentinel_internal:
+    driver: bridge
+
+# ─────────────────────────────────────────────
+# Volumes — named, managed by Docker
+# ─────────────────────────────────────────────
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

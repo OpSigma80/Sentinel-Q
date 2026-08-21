@@ -1,41 +1,14 @@
+==========================================================
+SENTINEL-Q: ALERTING BUILD NOTES - PHASE 5
+==========================================================
 
-======================================================================
-           SENTINEL-Q: MANUAL TÉCNICO DE ALERTAS (FASE 5)
-======================================================================
+Alerting flow:
+- the Checker detects a failing status
+- the Notifier formats an outbound message
+- `logger.critical()` marks high-severity events in logs
 
-1. FLUJO DE EJECUCIÓN DEL ERROR (Lo que viste en consola):
-----------------------------------------------------------------------
-A. checker.py -> Detecta que el status es != 200.
-B. notifier.py -> Recibe el nombre, URL y error, y genera el bloque visual.
-C. loguru -> Categoriza el mensaje como CRITICAL, permitiendo resaltar 
-   entre el tráfico normal de información.
-
-2. CÓDIGO FUENTE COMENTADO:
-
-[src/sentinel/application/notifier.py]
---------------------------------------
-from loguru import logger # Motor de logs profesional.
-
-class AlertNotifier:
-    async def notify_failure(self, service_name: str, url: str, status: int):
-        # Generamos un mensaje formateado para lectura humana rápida.
-        msg = f"!!! ALERTA CRÍTICA: {service_name} ESTÁ CAÍDO (Status: {status}) !!!"
-        # Usamos logger.critical para forzar la atención del operador.
-        logger.critical(f"\n{'='*50}\n{msg}\nURL: {url}\n{'='*50}")
-
-[src/sentinel/application/checker.py] (Fragmento de Alerta)
---------------------------------------
-if status == 200:
-    logger.success(...) # El sistema está sano.
-else:
-    # Si status es 0 o != 200, invocamos al notificador de forma asíncrona.
-    await self.notifier.notify_failure(target.name, str(target.url), status)
-
-3. JUSTIFICACIÓN DEL DISEÑO:
-----------------------------------------------------------------------
-- Desacoplamiento: El Checker no imprime el error; solo 'avisa' que 
-  hay uno. Esto permite que mañana el Notifier pueda enviar un Email 
-  sin que el Checker cambie.
-- Visibilidad: El uso de marcos (===) en los logs reduce el tiempo de 
-  reacción del desarrollador durante un incidente.
-======================================================================
+Design rationale:
+- the Checker detects failures
+- the Notifier communicates them
+- this keeps the design extensible for future channels such as Telegram, SMS, or email
+==========================================================

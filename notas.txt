@@ -1,0 +1,102 @@
+/home/rovira80/dev/data-forge/Sentinel-Q
+
+CONTEXTO SENTINEL-Q PROFESIONAL-GRADE:
+
+Sistema: FastAPI + PostgreSQL + APScheduler + Telegram
+Hardware: iMac 2009 (CPU limitado) → Solo librerías ligeras
+Estado Actual: v1.0 Production-ready (security hardened)
+Objetivo: Evolucionar a Professional-Grade SaaS (4 semanas)
+
+ROADMAP:
+- Semana 1: Telegram mejorado + Alertas inteligentes
+- Semana 2: JWT Auth + Multi-tenant + Admin panel
+- Semana 3: Rate limiting + Webhooks outbound
+- Semana 4: Documentación + Postman + Polish
+
+RESTRICCIONES:
+- Sin librerías pesadas (numpy, pandas, streamlit)
+- CPU-friendly: máx 2-3% overhead por feature
+- Mantener compatibilidad con hardware antiguo
+- ToDo: health scores, graceful shutdown, encrypted logs funcionan
+
+ESTÁNDARES:
+- Code review antes de merge
+- Type hints 100%
+- Unit tests obligatorios
+- Professional-grade documentation
+- Production-ready (no shortcuts)
+
+CUANDO INICIES:
+1. Revisa estado actual del codigo
+2. Identifica deuda técnica
+3. Propón mejoras antes de implementar
+4. Sé crítico y directo (sin filtros)
+5. Piensa como architect, no como junior
+
+actualizacion:
+
+Actuaré con:
+
+✅ Pensamiento crítico avanzado
+✅ Estándares profesionales de excelencia
+✅ Detección de problemas y riesgos
+✅ Soluciones optimizadas
+✅ Precisión técnica + creatividad estratégica
+
+Roadmap Sentinel-Q — Estado actual
+Semana 1: Telegram mejorado + Alertas inteligentes — ~80% COMPLETADO
+Implementado:
+
+AlertNotifier con alertas contextuales (trend data, downtime, health score)
+Failure/recovery thresholds configurables (ALERT_FAILURE_THRESHOLD, ALERT_RECOVERY_THRESHOLD)
+Cooldown entre alertas (ALERT_COOLDOWN_SECONDS)
+Flap guard con stability window (ALERT_STABILITY_WINDOW_SECONDS)
+Throttling por severidad (critical/warning/medium)
+Tests en test_alerting.py y test_telegram_enhanced.py
+Pendiente:
+
+services está vacío — cualquier lógica de servicio de alertas inteligentes que deba vivir ahí aún no existe
+Validar test suite pasa completamente
+Semana 2: JWT Auth + Multi-tenant + Admin panel — 0% — NO INICIADO
+Actualmente solo existe autenticación por header X-Sentinel-Key con secreto fijo en texto plano (SENTINEL_PRO_SECRET_2026_V1). No hay JWT, no hay multi-tenancy, no hay panel admin.
+
+Semana 3: Rate limiting + Webhooks outbound — 0% — NO INICIADO
+Ningún middleware de rate limiting ni endpoint de webhook outbound presente.
+
+Semana 4: Documentación + Postman + Polish — 25% — EN CURSO
+Refactorizado main.py a Lifespan (modern standards). OpenAPI schemas mejorados con ejemplos y descripciones profesionales.
+
+
+Aquí el prompt para mañana — guárdalo en notas.txt:
+
+
+## Prompt de recuperación para mañana
+
+```
+SESIÓN ANTERIOR: Sentinel-Q — 26 abril 2026
+
+ESTADO CONFIRMADO:
+- Tests: 235/235 passing (Semana 3 completa: Rate Limiting + Webhooks)
+- Semanas 1–3 del roadmap: COMPLETAS
+- Semana 4 (Docs/Postman/Polish): PENDIENTE
+
+ARTIFACTS DE PRODUCCIÓN (todos completos y validados hoy):
+- docker-compose.prod.yml ✅ (no curl, no bind mounts, DB interna, mem 768MB total)
+- deploy/Caddyfile ✅ (dashboard comentado por defecto)
+- .env.example ✅
+- docs/DEPLOY_VPS.md ✅
+- pyproject.toml ✅ (requires-python >=3.11)
+- requirements.txt ✅ (sin duplicados)
+
+PRÓXIMA TAREA — Semana 4: Documentación + Postman + Polish
+Opciones (priorizar por revenue):
+1. Postman collection operativa para demo/ventas
+2. OpenAPI /docs con descripciones limpias para terceros
+3. Limpiar deuda técnica: @app.on_event warnings, state_tracker en memoria
+
+Stack: FastAPI 0.135.3 + PostgreSQL 15 + JWT HS256 + slowapi + httpx webhooks
+Hardware constraint: iMac 2009, prohibido numpy/pandas, max 2-3% CPU/feature
+Todo en el repo en inglés.
+
+¿Por dónde empezamos?
+```

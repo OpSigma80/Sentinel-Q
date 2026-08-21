@@ -1,20 +1,9 @@
-
 ==========================================================
-        NOTAS DE OPERACIÓN DEL SERVIDOR (DEV MODE)
+SENTINEL-Q: SERVER OPERATION NOTES
 ==========================================================
 
-1. RECARGA AUTOMÁTICA (RELOAD):
-   Uvicorn vigila toda la carpeta Sentinel-Q. Si generas 
-   un archivo .txt en la carpeta docs/, el servidor se 
-   reiniciará. Esto es normal.
-
-2. ERRORES DE SPAWN/TRACEBACK:
-   Si ves un error largo de 'multiprocessing' al guardar, 
-   no te alarmes. Es una colisión temporal de procesos. 
-   El servidor siempre intentará levantarse de nuevo.
-
-3. ESTADO DE SALUD:
-   Mientras veas el mensaje "Sistema Operativo", el 
-   Scheduler está corriendo en segundo plano y la base 
-   de datos está conectada.
+Operational reminders:
+- `--reload` watches the workspace and may restart on doc edits
+- temporary multiprocessing collisions can happen during reload cycles
+- the system is ready when startup logs confirm that the scheduler and database are online
 ==========================================================

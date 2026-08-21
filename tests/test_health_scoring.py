@@ -7,6 +7,7 @@ import pytest
 from datetime import datetime
 from sentinel.infrastructure.repository import TargetRepository
 from sentinel.infrastructure.orm_models import ServiceTargetTable, ServiceMetricsTable
+from sentinel.services.analytics_service import AnalyticsService
 from sqlalchemy.orm import Session
 
 
@@ -41,7 +42,7 @@ class TestHealthScoringAlgorithm:
             db_session.add(metric)
         db_session.commit()
         
-        health_score = repo.calculate_health_score(target.id)
+        health_score = AnalyticsService(db_session).calculate_health_score(target.id)
         
         assert health_score >= 90, f"Perfect uptime should score >= 90, got {health_score}"
         assert health_score <= 100, f"Health score should not exceed 100, got {health_score}"
@@ -75,7 +76,7 @@ class TestHealthScoringAlgorithm:
             db_session.add(metric)
         db_session.commit()
         
-        health_score = repo.calculate_health_score(target.id)
+        health_score = AnalyticsService(db_session).calculate_health_score(target.id)
         
         assert 30 <= health_score <= 70, f"Degraded service should score 30-70, got {health_score}"
     
@@ -106,7 +107,7 @@ class TestHealthScoringAlgorithm:
             db_session.add(metric)
         db_session.commit()
         
-        health_score = repo.calculate_health_score(target.id)
+        health_score = AnalyticsService(db_session).calculate_health_score(target.id)
         
         assert health_score <= 50, f"Down service should score <= 50, got {health_score}"
     
@@ -125,7 +126,7 @@ class TestHealthScoringAlgorithm:
         db_session.add(target)
         db_session.commit()
         
-        health_score = repo.calculate_health_score(target.id)
+        health_score = AnalyticsService(db_session).calculate_health_score(target.id)
         
         assert health_score == 50.0, f"No data should score 50.0, got {health_score}"
 
@@ -156,7 +157,7 @@ class TestMetricsCalculation:
             db_session.add(metric)
         db_session.commit()
         
-        stats = repo.get_target_statistics(target.id)
+        stats = AnalyticsService(db_session).get_target_statistics(target.id)
         
         assert stats["uptime_percent"] == 100.0, f"100% success should give 100% uptime"
         assert stats["total_checks"] == 100, f"Should have 100 checks"
@@ -185,7 +186,7 @@ class TestMetricsCalculation:
             db_session.add(metric)
         db_session.commit()
         
-        stats = repo.get_target_statistics(target.id)
+        stats = AnalyticsService(db_session).get_target_statistics(target.id)
         
         assert stats["min_latency_ms"] == 50.0, f"Min latency should be 50.0"
         assert stats["max_latency_ms"] == 150.0, f"Max latency should be 150.0"
@@ -222,7 +223,7 @@ class TestMetricsCalculation:
             db_session.add(metric2)
         db_session.commit()
         
-        stats = repo.get_target_statistics(target.id)
+        stats = AnalyticsService(db_session).get_target_statistics(target.id)
         
         assert stats["uptime_percent"] == 50.0, f"50% success should give 50% uptime"
         assert stats["total_checks"] == 100, f"Should have 100 total checks"

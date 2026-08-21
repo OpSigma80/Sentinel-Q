@@ -225,10 +225,13 @@ Content-Security-Policy: default-src 'self' ...
 ### Run Unit Tests
 ```bash
 cd /home/rovira80/dev/data-forge/Sentinel-Q
+pip install -e .[dev]
 pytest tests/ -v --cov=src/sentinel
+pytest tests/test_alerting.py -v
 
 # Expected output:
 # test_health_scoring.py::test_perfect_uptime PASSED
+# test_alerting.py::test_scheduler_requires_consecutive_failures_before_alert PASSED
 # test_health_scoring.py::test_degraded_service PASSED
 # test_targets.py::test_create_target_with_valid_data PASSED
 # ===== 25 passed in 2.34s =====
@@ -296,6 +299,11 @@ helm install sentinel-q ./helm-chart \
 POSTGRES_USER=israel_admin              # DB user
 POSTGRES_PASSWORD=sentinel_pass_2026    # DB password
 POSTGRES_DB=sentinel_db                 # DB name
+BOT_TOKEN=123456:telegram-bot-token     # Telegram bot token
+CHAT_ID=-1001234567890                  # Telegram destination chat
+ALERT_FAILURE_THRESHOLD=2               # Consecutive failed checks before alerting
+ALERT_RECOVERY_THRESHOLD=2              # Consecutive successful checks before recovery
+ALERT_COOLDOWN_SECONDS=300              # Cooldown for repeated flapping incidents
 CORS_ORIGINS=http://localhost:8000      # Allowed origins
 LOG_LEVEL=INFO                          # Logging verbosity
 ```

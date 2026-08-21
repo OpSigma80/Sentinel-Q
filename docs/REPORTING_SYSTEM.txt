@@ -1,17 +1,9 @@
+==========================================================
+SENTINEL-Q: REPORTING SYSTEM NOTES
+==========================================================
 
-======================================================================
-           SENTINEL-Q: MANUAL DE REPORTES (GET /INCIDENTS)
-======================================================================
-
-1. FUNCIONALIDAD:
-   El endpoint GET /incidents actúa como la interfaz de auditoría del 
-   sistema. Extrae de la tabla 'incident_history' los fallos registrados.
-
-2. PARÁMETROS TÉCNICOS:
-   - limit: Controla el flujo de datos (Paginación básica).
-   - db: Inyecta la sesión de SQLAlchemy de forma segura.
-
-3. VALOR DE NEGOCIO:
-   Este endpoint es la base para construir en el futuro un Dashboard 
-   o enviar reportes semanales de estabilidad a los clientes.
-======================================================================
+Reporting baseline:
+- `GET /incidents` reads the audit trail from `incident_history`
+- the `limit` parameter bounds the result set
+- the dataset can be reused later for dashboards and SLA-style summaries
+==========================================================

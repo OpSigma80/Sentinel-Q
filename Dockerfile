@@ -15,7 +15,6 @@ ENV PYTHONPATH=/app/src
 WORKDIR /app
 
 # 4. Instalación de dependencias del Sistema Operativo
-# Necesitamos libpq para Postgres y build-essential para compilar librerías de alto rendimiento
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
@@ -24,19 +23,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 5. Gestión de dependencias de Python
-# Copiamos solo los requerimientos para aprovechar la caché de Docker
+# 5. Crear usuario no-root dedicado con UID 1000 para coincidir con el host
+# Esto permite escribir en volúmenes montados sin conflictos de permisos
+RUN groupadd --system --gid 1000 appgroup && \
+    useradd --system --uid 1000 --gid appgroup --no-create-home appuser
+
+# 6. Gestión de dependencias de Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# 6. Copia del Código Fuente y Assets
-# Aseguramos que la carpeta static (UI) se incluya en la imagen
+# 7. Copia del Código Fuente y Assets
 COPY src/ /app/src/
 
-# 7. Exposición de puertos
+# 8. Crear directorio de logs con ownership correcto ANTES de cambiar de usuario
+# Esto garantiza que appuser pueda escribir logs sin escalar privilegios
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app/logs
+
+# 9. Cambiar a usuario no-root para runtime
+USER appuser
+
+# 10. Exposición de puertos
 EXPOSE 8000
 
-# 8. Comando de ejecución
-# Usamos el modo producción de Uvicorn
+# 11. Comando de ejecución
 CMD ["uvicorn", "sentinel.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

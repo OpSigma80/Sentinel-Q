@@ -1,18 +1,13 @@
-
 ==========================================================
-        GUÍA DE PRUEBAS DE ESTRÉS Y ALERTAS
+SENTINEL-Q: ALERT TESTING GUIDE
 ==========================================================
 
-OBJETIVO: Validar el flujo end-to-end de Sentinel-Q.
+Suggested end-to-end check:
+1. Create a target with an invalid URL.
+2. Observe CRITICAL-level logs for the failed outbound check.
+3. Confirm an incident row is created.
+4. Confirm a Telegram notification is delivered with Markdown formatting.
 
-PROCEDIMIENTO:
-1. Usar POST /watch con una URL de dominio inválido.
-2. Monitorear logs de terminal para confirmar el error 11001 (DNS).
-3. Verificar la creación de la fila en 'incident_history'.
-4. Confirmar recepción de Push Notification en Telegram.
-
-SÍNTOMAS DE ÉXITO:
-- Terminal: Log nivel CRITICAL visible.
-- DB: Nueva entrada en la tabla de incidentes.
-- Móvil: Notificación con formato Markdown (negritas y emojis).
+Goal:
+- validate detection, persistence, and outbound notification in one pass
 ==========================================================

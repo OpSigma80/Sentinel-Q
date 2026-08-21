@@ -1,23 +1,17 @@
+==========================================================
+SENTINEL-Q: ADVANCED PERSISTENCE MANUAL
+==========================================================
 
-======================================================================
-    SENTINEL-Q: MANUAL DE PERSISTENCIA AVANZADA (HISTORIAL)
-======================================================================
+Design summary:
+- `services` stores the current snapshot state.
+- `incident_history` stores historical incident events.
+- `log_incident()` records a row automatically on non-200 results.
 
-1. CONCEPTOS DE DISEÑO:
-   - Tabla 'services': Almacena el ESTADO ACTUAL (Snapshot).
-   - Tabla 'incident_history': Almacena la SERIE TEMPORAL (Logs).
+Why two tables:
+- the current state remains lightweight and query-friendly
+- historical failures remain available for audit and reporting
 
-2. POR QUÉ USAR DOS TABLAS:
-   Si guardáramos los fallos en la tabla 'services', perderíamos el 
-   registro de cuántas veces cayó en el pasado. Al tener una tabla 
-   de incidentes, podemos calcular el SLA (Service Level Agreement).
-
-3. MÉTODO LOG_INCIDENT:
-   Se dispara automáticamente desde el Checker solo cuando el status 
-   no es 200. Es el "registro de caja negra" del sistema.
-
-PRUEBA TÉCNICA:
-- Realiza 3 peticiones a una URL falsa.
-- Abre tu explorador de SQLite o espera a que hagamos el endpoint GET.
-- Deberías ver 3 filas diferentes en 'incident_history'.
-======================================================================
+Validation idea:
+- trigger the same failing service multiple times
+- confirm multiple rows appear in `incident_history`
+==========================================================

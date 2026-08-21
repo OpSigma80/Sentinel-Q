@@ -1,26 +1,18 @@
-
 ==========================================================
-        SENTINEL-Q: MANUAL DE TELEGRAM (FASE 6)
+SENTINEL-Q: TELEGRAM INTEGRATION GUIDE
 ==========================================================
 
-1. REQUISITOS:
-   - Token de BotFather.
-   - ChatID de UserInfoBot.
-   - Variables cargadas en .env.
+Requirements:
+- BotFather token
+- UserInfoBot chat ID
+- matching values in `.env`
 
-2. SEGURIDAD:
-   Nunca subas el archivo .env a GitHub. El Token de 
-   Telegram permite a cualquiera controlar tu bot.
+Security:
+- never commit `.env`
+- whoever has the bot token can control the bot
 
-3. FLUJO DE ALERTA:
-   Checker -> detecta error -> Notifier -> envía POST a 
-   la API de Telegram -> Recibes notificación en móvil.
-   
-   
-Explicación Línea por Línea (Para docs/)
-parse_mode="Markdown": Permite usar negritas (*) y emojis en el mensaje para que sea legible en el celular.
-
-httpx.AsyncClient(): Usamos el cliente asíncrono para que, mientras se envía el Telegram (que puede tardar 1 segundo), el sistema siga vigilando otros servicios. No bloqueamos el flujo.
-
-Validación de Token: Si no pones el token en el .env, el sistema simplemente avisa por log y sigue funcionando. Esto es Diseño Tolerante a Fallos.
+Implementation notes:
+- `parse_mode="Markdown"` improves readability with formatting and emoji
+- `httpx.AsyncClient()` keeps message sending non-blocking
+- if the token is missing, the system logs the issue and keeps running
 ==========================================================

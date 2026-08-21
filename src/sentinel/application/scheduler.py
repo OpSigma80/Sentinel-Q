@@ -1,18 +1,34 @@
 import httpx
 import asyncio
 import time
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
 from loguru import logger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sentinel.application.notifier import AlertNotifier
 from sentinel.domain.models import ServiceTarget
 from sentinel.infrastructure.database import SessionLocal 
 from sentinel.infrastructure.repository import TargetRepository
+from sentinel.config import settings
+
+
+@dataclass
+class TargetAlertState:
+    current_state: str = "up"
+    failure_streak: int = 0
+    recovery_streak: int = 0
+    down_since: Optional[datetime] = None
+    pending_failure_since: Optional[datetime] = None
+    last_alert_at: Optional[datetime] = None
+    last_failure_alert_at: Optional[datetime] = None
+    incident_alert_sent: bool = False
 
 class SentinelScheduler:
-    def __init__(self):
+    def __init__(self) -> None:
         self._scheduler = AsyncIOScheduler()
         self._notifier = AlertNotifier()
-        self._state_tracker = {}
+        self._state_tracker: dict[str, TargetAlertState] = {}
 
     def start(self):
         if not self._scheduler.running:
@@ -27,12 +43,12 @@ class SentinelScheduler:
         return [str(job.id) for job in self._scheduler.get_jobs()]
 
     def add_target_watch(self, target: ServiceTarget):
-        """Suscripción de un objetivo al ciclo de monitoreo."""
-        target_id_str = str(target.id) # Normalización a String
+        """Subscribe a target to the monitoring loop."""
+        target_id_str = str(target.id)
         self.remove_target_watch(target_id_str)
         
         if target_id_str not in self._state_tracker:
-            self._state_tracker[target_id_str] = "up"
+            self._state_tracker[target_id_str] = TargetAlertState()
 
         self._scheduler.add_job(
             self._check_target_status,
@@ -45,14 +61,13 @@ class SentinelScheduler:
         logger.info(f"📍 Vigilancia programada: {target.name} (frecuencia: {target.check_interval}s)")
 
     def remove_target_watch(self, target_id: str):
-        """Remoción segura de un objetivo del planificador."""
+        """Safely remove a target from the scheduler."""
         try:
             target_id_str = str(target_id)
             job = self._scheduler.get_job(target_id_str)
             if job:
                 self._scheduler.remove_job(target_id_str)
                 logger.warning(f"🛑 Target {target_id_str} removido del scheduler")
-                # Limpiar estado asociado
                 if target_id_str in self._state_tracker:
                     del self._state_tracker[target_id_str]
                 return True
@@ -62,15 +77,179 @@ class SentinelScheduler:
             logger.error(f"Error al remover job {target_id}: {e}")
         return False
 
+    def _get_target_state(self, target_id: str) -> TargetAlertState:
+        """Return alert state for a target, initializing it when needed."""
+        if target_id not in self._state_tracker:
+            self._state_tracker[target_id] = TargetAlertState()
+        return self._state_tracker[target_id]
+
+    def _should_send_alert(self, state: TargetAlertState, checked_at: datetime) -> bool:
+        """Apply per-target cooldown between incident notifications."""
+        if state.last_alert_at is None:
+            return True
+
+        elapsed_seconds = (checked_at - state.last_alert_at).total_seconds()
+        return elapsed_seconds >= settings.ALERT_COOLDOWN_SECONDS
+
+    def _classify_severity(self, status_code: int, status_desc: str, failure_streak: int) -> str:
+        """Classify an incident severity for Telegram context."""
+        if status_code == 0 or "error" in status_desc.lower() or failure_streak >= 5:
+            return "CRITICAL"
+        if status_code >= 500:
+            return "HIGH"
+        return "MEDIUM"
+
+    def _get_severity_throttle_seconds(self, severity: str) -> int:
+        """Return per-severity throttle to reduce alert fatigue on noisy services."""
+        if severity == "CRITICAL":
+            return settings.ALERT_CRITICAL_THROTTLE_SECONDS
+        if severity == "HIGH":
+            return settings.ALERT_WARNING_THROTTLE_SECONDS
+        return settings.ALERT_MEDIUM_THROTTLE_SECONDS
+
+    def _should_send_failure_alert(self, state: TargetAlertState, severity: str, checked_at: datetime) -> bool:
+        """Apply severity-aware throttle to failure alerts."""
+        if state.last_failure_alert_at is None:
+            return True
+
+        throttle_seconds = self._get_severity_throttle_seconds(severity)
+        elapsed_seconds = (checked_at - state.last_failure_alert_at).total_seconds()
+        return elapsed_seconds >= throttle_seconds
+
+    async def _handle_target_result(
+        self,
+        target: ServiceTarget,
+        *,
+        status_code: int,
+        response_time: float,
+        is_up: bool,
+        status_desc: str,
+        checked_at: Optional[datetime] = None,
+    ) -> None:
+        """Persist telemetry and evaluate alert transitions for a target."""
+        checked_at = checked_at or datetime.now()
+
+        with SessionLocal() as db:
+            repo = TargetRepository(db)
+            try:
+                repo.add_metric(
+                    target_id=str(target.id),
+                    status_code=status_code,
+                    response_time_ms=response_time
+                )
+            except Exception as db_err:
+                logger.error(f"Error en persistencia para {target.name}: {db_err}")
+
+        target_id_str = str(target.id)
+        state = self._get_target_state(target_id_str)
+
+        if not is_up:
+            state.failure_streak += 1
+            state.recovery_streak = 0
+            if state.pending_failure_since is None:
+                state.pending_failure_since = checked_at
+
+            stability_seconds = (checked_at - state.pending_failure_since).total_seconds()
+
+            if state.current_state == "up" and state.failure_streak >= settings.ALERT_FAILURE_THRESHOLD:
+                if stability_seconds < settings.ALERT_STABILITY_WINDOW_SECONDS:
+                    logger.warning(
+                        f"FLAP GUARD: {target.name} failure threshold met but waiting stability window "
+                        f"{stability_seconds:.0f}/{settings.ALERT_STABILITY_WINDOW_SECONDS}s"
+                    )
+                    return
+
+                if state.down_since is None:
+                    state.down_since = state.pending_failure_since
+
+                severity = self._classify_severity(status_code, status_desc, state.failure_streak)
+                state.current_state = "down"
+                state.incident_alert_sent = (
+                    self._should_send_alert(state, checked_at)
+                    and self._should_send_failure_alert(state, severity, checked_at)
+                )
+
+                logger.warning(
+                    f"❌ ALERT: {target.name} DOWN | {status_desc} | {response_time:.2f}ms | "
+                    f"streak={state.failure_streak} | severity={severity}"
+                )
+
+                if state.incident_alert_sent:
+                    await self._notifier.notify_failure(
+                        target.name,
+                        str(target.url),
+                        status_desc,
+                        severity=severity,
+                        response_time_ms=response_time,
+                        failure_streak=state.failure_streak,
+                        incident_started_at=state.down_since,
+                    )
+                    state.last_alert_at = checked_at
+                    state.last_failure_alert_at = checked_at
+                else:
+                    logger.warning(
+                        f"Telegram failure alert suppressed by cooldown for {target.name}"
+                    )
+
+                with SessionLocal() as db:
+                    TargetRepository(db).register_incident(target_id_str, target.name, status_code)
+            else:
+                logger.warning(
+                    f"HEARTBEAT DEGRADED: {target.name} | {status_desc} | {response_time:.2f}ms | "
+                    f"failure_streak={state.failure_streak}"
+                )
+            return
+
+        state.failure_streak = 0
+        state.pending_failure_since = None
+
+        if state.current_state == "down":
+            state.recovery_streak += 1
+            if state.recovery_streak < settings.ALERT_RECOVERY_THRESHOLD:
+                logger.info(
+                    f"RECOVERY PENDING: {target.name} | success_streak={state.recovery_streak}/"
+                    f"{settings.ALERT_RECOVERY_THRESHOLD}"
+                )
+                return
+
+            downtime_seconds = None
+            if state.down_since is not None:
+                downtime_seconds = (checked_at - state.down_since).total_seconds()
+
+            logger.success(
+                f"✅ RECOVERED: {target.name} | {response_time:.2f}ms | downtime={downtime_seconds or 0:.0f}s"
+            )
+
+            if state.incident_alert_sent:
+                await self._notifier.notify_success(
+                    target.name,
+                    str(target.url),
+                    response_time_ms=response_time,
+                    recovery_streak=state.recovery_streak,
+                    downtime_seconds=downtime_seconds,
+                )
+                state.last_alert_at = checked_at
+            else:
+                logger.info(f"Recovery alert skipped for {target.name} because incident alert was suppressed")
+
+            state.current_state = "up"
+            state.recovery_streak = 0
+            state.down_since = None
+            state.incident_alert_sent = False
+            return
+
+        state.recovery_streak = 0
+        state.down_since = None
+        logger.debug(f"HEARTBEAT OK: {target.name} | {status_desc} | {response_time:.2f}ms")
+
     async def _check_target_status(self, target: ServiceTarget):
-        """Lógica nuclear: Medición de latencia y persistencia de estado."""
+        """Perform an HTTP health check and feed the alert state machine."""
         status_code = 0
         response_time = 0.0
         is_up = False
         
         start_time = time.perf_counter()
         
-        # Uso de AsyncClient para máxima eficiencia en E/S
         async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
             try:
                 response = await client.get(str(target.url))
@@ -85,34 +264,10 @@ class SentinelScheduler:
                 status_code = 0 
                 status_desc = f"Error: {type(e).__name__}"
 
-        # 💾 REGISTRO DE TELEMETRÍA (Heartbeat)
-        with SessionLocal() as db:
-            repo = TargetRepository(db)
-            try:
-                repo.add_metric(
-                    target_id=str(target.id), # Aseguramos persistencia coherente
-                    status_code=status_code,
-                    response_time_ms=response_time
-                )
-            except Exception as db_err:
-                logger.error(f"Error en persistencia para {target.name}: {db_err}")
-
-        # 🚦 MÁQUINA DE ESTADOS Y NOTIFICACIONES
-        target_id_str = str(target.id)
-        last_known_state = self._state_tracker.get(target_id_str, "up")
-
-        if not is_up and last_known_state == "up":
-            logger.warning(f"❌ ALERTA: {target.name} CAÍDO | {status_desc} | {response_time:.2f}ms")
-            self._state_tracker[target_id_str] = "down"
-            await self._notifier.notify_failure(target.name, str(target.url), status_desc)
-            with SessionLocal() as db:
-                TargetRepository(db).register_incident(target_id_str, target.name, status_code)
-
-        elif is_up and last_known_state == "down":
-            logger.success(f"✅ RECUPERADO: {target.name} en {response_time:.2f}ms")
-            self._state_tracker[target_id_str] = "up"
-            await self._notifier.notify_success(target.name, str(target.url))
-            
-        else:
-            log_level = "DEBUG" if is_up else "WARNING"
-            logger.log(log_level, f"LATIDO: {target.name} | {status_desc} | {response_time:.2f}ms")
+        await self._handle_target_result(
+            target,
+            status_code=status_code,
+            response_time=response_time,
+            is_up=is_up,
+            status_desc=status_desc,
+        )

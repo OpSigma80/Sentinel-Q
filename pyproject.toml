@@ -5,12 +5,23 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "sentinel-q"
 version = "0.1.0"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
+    "apscheduler",
     "fastapi",
+    "httpx",
     "uvicorn[standard]",
+    "python-dotenv",
     "pydantic-settings",
-    "loguru"
+    "loguru",
+    "sqlalchemy",
+    "psycopg2-binary",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
 ]
 
 [tool.setuptools.packages.find]

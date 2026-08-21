@@ -1,14 +1,17 @@
-# docs/SYSTEM_FLOW.txt
-"""
-FLUJO DE VIDA DE SENTINEL-Q:
+==========================================================
+SENTINEL-Q: SYSTEM FLOW
+==========================================================
 
-1. STARTUP: El sistema lee la base de datos. Si no hay registros, 
-   el Scheduler se queda en espera (IDLE).
-2. /WATCH: Es la puerta de entrada. Crea el registro en DB y 
-   registra la tarea en el Scheduler en tiempo real.
-3. CICLO: Cada X segundos, el Checker intenta el ping.
-4. ALERTA: Si falla, el Notifier ejecuta el POST asíncrono a Telegram.
+1. STARTUP
+- the system reads persisted targets from the database
+- if no records exist, the scheduler stays idle
 
-Si el sistema no hace nada tras el inicio, usa /watch para 
-darle su primera misión.
-"""
+2. WATCH CREATION
+- an API request stores a target and schedules monitoring
+
+3. CHECK LOOP
+- the Checker probes the target at the configured interval
+
+4. ALERTING
+- on failure, the Notifier sends the Telegram request asynchronously
+==========================================================

@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sentinel.infrastructure.database import Base
 from sentinel.infrastructure.repository import TargetRepository
+from sentinel.services.analytics_service import AnalyticsService
 
 
 # --- FIXTURES ---
@@ -249,7 +250,7 @@ def test_health_score_no_metrics(test_db):
     )
     saved = repo.save_target(target)
     
-    score = repo.calculate_health_score(saved.id)
+    score = AnalyticsService(test_db).calculate_health_score(saved.id)
     assert score == 50.0  # Default neutral score
 
 
@@ -267,7 +268,7 @@ def test_health_score_all_successful(test_db):
     for _ in range(10):
         repo.add_metric(saved.id, status_code=200, response_time_ms=50.0)
     
-    score = repo.calculate_health_score(saved.id)
+    score = AnalyticsService(test_db).calculate_health_score(saved.id)
     assert score == 100.0  # Perfect score: 100% uptime, stable latency
 
 
@@ -286,9 +287,9 @@ def test_health_score_partial_failures(test_db):
         status = 200 if i < 9 else 500
         repo.add_metric(saved.id, status_code=status, response_time_ms=50.0)
     
-    score = repo.calculate_health_score(saved.id)
+    score = AnalyticsService(test_db).calculate_health_score(saved.id)
     assert 80.0 < score < 100.0  # Between 80-100, not perfect
-    assert score == 90.0  # Exactly 90% uptime (9/10)
+    assert score == 94.0  # 90% uptime plus stable latency weighting
 
 
 def test_health_score_latency_stability(test_db):
@@ -306,7 +307,7 @@ def test_health_score_latency_stability(test_db):
     for latency in latencies:
         repo.add_metric(saved.id, status_code=200, response_time_ms=latency)
     
-    score = repo.calculate_health_score(saved.id)
+    score = AnalyticsService(test_db).calculate_health_score(saved.id)
     # Score should be lower due to latency instability
     assert score < 100.0
     assert score > 50.0
@@ -328,9 +329,9 @@ def test_get_target_statistics(test_db):
     for i in range(5):
         repo.add_metric(saved.id, status_code=200, response_time_ms=50 + (i * 10))
     
-    stats = repo.get_target_statistics(saved.id)
+    stats = AnalyticsService(test_db).get_target_statistics(saved.id)
     
-    assert stats['uptime_percentage'] == 100.0
+    assert stats['uptime_percent'] == 100.0
     assert stats['avg_latency_ms'] > 0
     assert stats['total_checks'] == 5
 

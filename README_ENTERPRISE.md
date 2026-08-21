@@ -241,7 +241,11 @@ API_KEY=SENTINEL_PRO_SECRET_2026_V1     # Auth token for DELETE ops
 CORS_ORIGINS=http://localhost:8000      # Allowed frontend origins
 
 # --- Optional Features ---
-TELEGRAM_TOKEN=xxxx                     # For future alert integrations
+BOT_TOKEN=123456:telegram-bot-token     # Telegram bot token
+CHAT_ID=-1001234567890                  # Telegram destination chat
+ALERT_FAILURE_THRESHOLD=2               # Consecutive failed checks before alerting
+ALERT_RECOVERY_THRESHOLD=2              # Consecutive successful checks before recovery
+ALERT_COOLDOWN_SECONDS=300              # Cooldown for repeated flapping incidents
 LOG_LEVEL=INFO                          # Logging verbosity
 ```
 
@@ -565,7 +569,8 @@ source venv/bin/activate
 
 # Install dev dependencies
 pip install -r requirements.txt
-pip install pytest pytest-asyncio black flake8
+pip install -e .[dev]
+pip install black flake8
 
 # Start local stack
 docker compose up -d

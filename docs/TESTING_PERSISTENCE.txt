@@ -1,24 +1,13 @@
-
 ==========================================================
-        GUÍA DE PRUEBAS DE PERSISTENCIA (FASE 4)
+SENTINEL-Q: PERSISTENCE TESTING GUIDE
 ==========================================================
 
-PASO 1: CREAR SERVICIOS DIFERENTES
-En Swagger (POST /watch), usa IDs únicos:
-- ID: "srv-google", Name: "Google", URL: "https://google.com"
-- ID: "srv-error", Name: "Fallo", URL: "https://url-falsa-123.com"
+Suggested flow:
+1. Create multiple services with unique IDs.
+2. Observe alternating healthy and failing logs.
+3. Query `/incidents` to confirm history persistence.
+4. Restart the server and verify targets are rehydrated automatically.
 
-PASO 2: VERIFICAR LA VIGILANCIA
-Mira la terminal. Deberías ver logs de "SISTEMA ONLINE" y 
-"ALERTA CRÍTICA" intercalados según el intervalo.
-
-PASO 3: CONSULTAR EL HISTORIAL
-Usa GET /incidents. Deberías ver una lista JSON de cada vez 
-que el "srv-error" falló.
-
-PASO 4: PRUEBA DE PERSISTENCIA REAL
-- Cierra la terminal (Ctrl+C).
-- Vuelve a ejecutar: uvicorn sentinel.main:app --reload
-- OBSERVACIÓN: El sistema dirá "Rehidratado: srv-google" 
-  automáticamente sin que tú hagas nada.
+Expected outcome:
+- active monitoring resumes without manual re-registration
 ==========================================================

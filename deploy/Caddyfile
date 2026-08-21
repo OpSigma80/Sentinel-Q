@@ -1,0 +1,63 @@
+# Sentinel-Q — Caddyfile
+#
+# Replace YOUR_API_DOMAIN and YOUR_DASHBOARD_DOMAIN with your actual domains
+# before deploying. Both must point to this VPS via DNS A records.
+#
+# Examples:
+#   YOUR_API_DOMAIN       → api.example.com
+#   YOUR_DASHBOARD_DOMAIN → dashboard.example.com  (optional)
+#
+# Caddy obtains TLS certificates automatically via Let's Encrypt.
+# No manual cert management needed.
+
+# ─────────────────────────────────────────────
+# API — FastAPI / Sentinel-Q backend
+# ─────────────────────────────────────────────
+YOUR_API_DOMAIN {
+    # Reverse proxy to the app container on the internal network
+    reverse_proxy app:8000
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Enable gzip/zstd compression
+    encode gzip zstd
+
+    # Access log
+    log {
+        output stdout
+        format json
+    }
+}
+
+# ─────────────────────────────────────────────
+# Dashboard — Streamlit (DISABLED BY DEFAULT)
+#
+# Requires a 2GB+ VPS. To enable:
+#   1. Uncomment the dashboard service in docker-compose.prod.yml.
+#   2. Uncomment this block and replace YOUR_DASHBOARD_DOMAIN.
+#   3. Rebuild and restart.
+#
+# ─────────────────────────────────────────────
+# YOUR_DASHBOARD_DOMAIN {
+#     reverse_proxy dashboard:8501
+#
+#     header {
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "SAMEORIGIN"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#         -Server
+#     }
+#
+#     encode gzip zstd
+#
+#     log {
+#         output stdout
+#         format json
+#     }
+# }

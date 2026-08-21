@@ -1,17 +1,13 @@
-
 ==========================================================
-        GUÍA DE EJECUCIÓN: SENTINEL-Q
+SENTINEL-Q: RUN COMMAND GUIDE
 ==========================================================
 
-COMANDO: uvicorn sentinel.main:app --reload
+Primary development command:
+- `uvicorn sentinel.main:app --reload`
 
-SIGNIFICADO:
-- uvicorn: El motor de ejecución (Servidor).
-- sentinel.main: La ruta al archivo de entrada.
-- app: La variable FastAPI dentro de ese archivo.
-- --reload: Modo desarrollo (Auto-reinicio).
-
-RECOMENDACIÓN: 
-No uses --reload en un servidor de producción real, ya que 
-consume más recursos. Es solo para nuestra fase de construcción.
+Meaning:
+- `uvicorn` starts the ASGI server
+- `sentinel.main` points to the package and module
+- `:app` selects the FastAPI instance
+- `--reload` is for development only and should not be used in production
 ==========================================================
