@@ -62,7 +62,7 @@ class TargetRepository:
         """Retorna todos los objetivos, activos e inactivos."""
         return self.db.query(ServiceTargetTable).order_by(ServiceTargetTable.id).all()
 
-    def get_active_services(self) -> list[ServiceTargetTable]:
+    def get_active_services(self, tenant_id: int | None = None) -> list[ServiceTargetTable]:
         """Return active services ordered for dashboard/status endpoints."""
         return (
             self.db.query(ServiceTargetTable)

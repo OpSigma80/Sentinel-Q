@@ -17,14 +17,8 @@ class TargetService:
         self._analytics = AnalyticsService(db)
 
     def list_targets_with_health(self, tenant_id: int | None = None) -> list[dict]:
-        """Return all targets enriched with computed health score.
-        
-        Pass tenant_id to scope to a specific tenant (API endpoints).
-        Pass None to return all (internal use).
-        """
         targets = self._repo.get_all()
         enriched_targets: list[dict] = []
-
         for target in targets:
             enriched_targets.append(
                 {
@@ -38,7 +32,6 @@ class TargetService:
                     "health_score": self._analytics.calculate_health_score(target.id),
                 }
             )
-
         return enriched_targets
 
     def create_target(self, target_in: ServiceTargetCreate, tenant_id: int | None = None):
@@ -46,11 +39,13 @@ class TargetService:
         saved = self._repo.save_target(
             DomainServiceTarget(
                 name=target_in.name,
-                url=target_in.url,
+                url=str(target_in.url),
                 check_interval=target_in.check_interval,
                 is_active=target_in.is_active,
             )
         )
+
+        self._db.refresh(saved)
 
         self._scheduler.add_target_watch(
             DomainServiceTarget(

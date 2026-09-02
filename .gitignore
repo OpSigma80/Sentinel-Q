@@ -40,3 +40,6 @@ sentinel.db
 terminal.txt
 explicacion_code.txt
 informacion.txt
+postman/*.local*.json
+cp/
+scripts/
