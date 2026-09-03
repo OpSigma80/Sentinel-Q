@@ -7,6 +7,8 @@
 ![Overview](docs/screenshots/dashboard-overview.png)
 ![Telemetry](docs/screenshots/dashboard-telemetry.png)
 
+![Tests](https://github.com/OpSigma80/Sentinel-Q/actions/workflows/tests.yml/badge.svg)
+
 **Status**: ✅ Production Ready | 92% Test Coverage | Zero Dependencies (except PostgreSQL)
 
 ---
