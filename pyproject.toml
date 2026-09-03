@@ -16,12 +16,16 @@ dependencies = [
     "loguru",
     "sqlalchemy",
     "psycopg2-binary",
+    "passlib[bcrypt]",
+    "python-jose[cryptography]",
+    "slowapi",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "pytest-asyncio",
+    "anyio",
 ]
 
 [tool.setuptools.packages.find]
