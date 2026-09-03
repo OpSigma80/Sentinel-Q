@@ -1,0 +1,56 @@
+name: Sentinel-Q Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_DB: test_db
+      BOT_TOKEN: test_token
+      CHAT_ID: "123456"
+      API_KEY: test_key
+      ALERT_FAILURE_THRESHOLD: 2
+      ALERT_RECOVERY_THRESHOLD: 2
+      ALERT_COOLDOWN_SECONDS: 300
+      ALERT_STABILITY_WINDOW_SECONDS: 300
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short
