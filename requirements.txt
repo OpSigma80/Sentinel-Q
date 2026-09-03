@@ -40,3 +40,6 @@ urllib3==2.6.3
 uvloop==0.22.1
 watchfiles==1.1.1
 websockets==16.0
+passlib[bcrypt]
+python-jose[cryptography]
+slowapi
