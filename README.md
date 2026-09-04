@@ -4,6 +4,7 @@
 
 ## 📸 Dashboard
 
+![Overview](docs/screenshots/sentinel_q_logo_v2.svg)
 ![Overview](docs/screenshots/dashboard-overview.png)
 ![Telemetry](docs/screenshots/dashboard-telemetry.png)
 
