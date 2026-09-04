@@ -1,3 +1,5 @@
+![Logo](docs/screenshots/sentinel_q_logo_v2.png)
+
 # 🛡️ Sentinel-Q: Production-Grade Monitoring Engine
 
 **Sentinel-Q** is an autonomous, lightweight monitoring system for distributed services. It combines intelligent health scoring, real-time alerting, and enterprise-grade reliability in a single, resource-efficient container.
