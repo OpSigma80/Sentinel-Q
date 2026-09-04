@@ -43,3 +43,9 @@ informacion.txt
 postman/*.local*.json
 cp/
 scripts/
+CLAUDE.md
+notas.txt
+test_db.py
+test_telegram.py
+postman/*.local*.json
+sentinel.db
