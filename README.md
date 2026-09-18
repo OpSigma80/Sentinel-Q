@@ -473,32 +473,7 @@ For questions or issues:
 2. Review existing [GitHub Issues](https://github.com/yourorg/sentinel-q/issues)
 3. Create a new issue with reproduction steps
 4. Email: support@realsystembuilders.com
-```
 
----
-
-### Justificación de Arquitecto
-* **README progresivo:** Te ayuda a no perder el hilo de qué falta y sirve como "contrato" de lo que el sistema ya hace.
-* **Aislamiento:** Al no instalar nada en el host (solo Docker), mantienes tu Debian 13 limpio y profesional. Si el sistema falla, borras el contenedor y el host sigue intacto.
-
-
----
-
-### 📘 Continuación del README.md: Guía de Operaciones
-
-#### 🚀 Despliegue de Infraestructura (Debian 13 / Docker)
-Para levantar el núcleo de monitoreo desde cero, asegúrese de tener configurado el archivo `.env` en la raíz del proyecto y ejecute:
-
-```bash
-# Limpiar cualquier estado previo (contenedores y volúmenes)
-docker compose down --volumes
-
-# Construir e iniciar en modo desatendido (detached)
-docker compose up -d --build
-
-# Monitorear logs en tiempo real para verificar el 'Startup'
-docker logs -f sentinel_app_container
-```
 
 
 
