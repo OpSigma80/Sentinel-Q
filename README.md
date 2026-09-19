@@ -4,7 +4,8 @@
 
 **Sentinel-Q** is an autonomous, lightweight monitoring system for distributed services. It combines intelligent health scoring, real-time alerting, and enterprise-grade reliability in a single, resource-efficient container.
 
-## 📸 Dashboard
+## 📸 Dashboard 
+🌐 Live Demo: https://sentinel-q.dev
 
 
 ![Overview](docs/screenshots/dashboard-overview.png)
