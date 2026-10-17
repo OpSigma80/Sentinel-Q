@@ -31,8 +31,8 @@ git clone <your-repo> Sentinel-Q && cd Sentinel-Q
 
 # Create environment file
 cat > .env << EOF
-POSTGRES_USER=israel_admin
-POSTGRES_PASSWORD=sentinel_pass_2026
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=change_me
 POSTGRES_DB=sentinel_db
 EOF
 
@@ -235,7 +235,7 @@ Content-Security-Policy: default-src 'self' ...
 
 ### Run Unit Tests
 ```bash
-cd /home/rovira80/dev/data-forge/Sentinel-Q
+cd /home/user/dev/data-forge/Sentinel-Q
 pip install -e .[dev]
 pytest tests/ -v --cov=src/sentinel
 pytest tests/test_alerting.py -v
@@ -483,7 +483,7 @@ El sistema expone una API REST protegida por una `X-Sentinel-Key`. A continuaci�
 
 **1. Verificación de Salud (Health Check)**
 ```powershell
-Invoke-RestMethod -Uri "http://192.168.1.216:8000/status"
+Invoke-RestMethod -Uri "http://000.000.0.000:8000/status"
 ```
 
 **2. Registro de Nuevo Objetivo de Vigilancia**
@@ -497,12 +497,12 @@ $body = @{
     is_active = $true
 } | ConvertTo-Json
 
-Invoke-RestMethod -Uri "http://192.168.1.216:8000/watch" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+Invoke-RestMethod -Uri "http://000.000.0.000:8000/watch" -Method Post -Headers $headers -Body $body -ContentType "application/json"
 ```
 
 **3. Terminación de Vigilancia**
 ```powershell
-Invoke-RestMethod -Uri "http://192.168.1.216:8000/terminate/PROYECTO-X" -Method Delete -Headers $headers
+Invoke-RestMethod -Uri "http://000.000.0.000:8000/terminate/PROYECTO-X" -Method Delete -Headers $headers
 ```
 
 ---
