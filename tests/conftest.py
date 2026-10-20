@@ -4,9 +4,13 @@ Pytest fixtures para Sentinel-Q
 
 import os
 
-# Debe fijarse ANTES de importar cualquier módulo de sentinel: indica a main.py
-# que no arranque BD real, scheduler, sync loop ni bot de Telegram.
+# Deben fijarse ANTES de importar cualquier módulo de sentinel.
+# TESTING: main.py no arranca BD real, scheduler, sync loop ni bot de Telegram.
+# DATABASE_URL: los tests nunca usan la BD del .env ni la del shell, y la suite
+# funciona en un clon limpio sin .env. Se asigna (no setdefault) a propósito,
+# para que una URL de producción exportada en el shell no llegue a los tests.
 os.environ["TESTING"] = "1"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 import pytest
 from sqlalchemy import create_engine, text
