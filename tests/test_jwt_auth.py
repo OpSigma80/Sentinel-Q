@@ -10,6 +10,7 @@ Covers:
 """
 
 import sys
+from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
 
@@ -21,7 +22,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from sentinel.infrastructure.jwt_service import create_access_token, verify_token
 
 
+def _admin_credentials() -> dict[str, str]:
+    """Same resolution logic as POST /auth/token in main.py, so both always agree."""
+    from sentinel.config import settings
+
+    return {
+        "username": getattr(
+            settings, "ADMIN_USERNAME", getattr(settings, "ADMIN_USER", "admin")
+        ),
+        "password": getattr(settings, "ADMIN_PASSWORD", "admin"),
+    }
+
+
 # ─── jwt_service unit tests ───────────────────────────────────────────────────
+
 
 class TestCreateAccessToken:
     def test_returns_string(self) -> None:
@@ -43,7 +57,9 @@ class TestCreateAccessToken:
         assert data.tenant_id == 42
 
     def test_custom_expiry_accepted(self) -> None:
-        token = create_access_token("admin", tenant_id=1, role="admin", expires_delta=timedelta(minutes=5))
+        token = create_access_token(
+            "admin", tenant_id=1, role="admin", expires_delta=timedelta(minutes=5)
+        )
         assert verify_token(token) is not None
 
 
@@ -65,15 +81,26 @@ class TestVerifyToken:
         assert verify_token(tampered) is None
 
     def test_expired_token_returns_none(self) -> None:
-        token = create_access_token("admin", tenant_id=1, role="admin", expires_delta=timedelta(seconds=-1))
+        token = create_access_token(
+            "admin", tenant_id=1, role="admin", expires_delta=timedelta(seconds=-1)
+        )
         assert verify_token(token) is None
 
 
 # ─── FastAPI integration tests ────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="module")
-def client():
-    """TestClient with in-memory SQLite override."""
+def client() -> Iterator[TestClient]:
+    """
+    TestClient backed by an in-memory SQLite DB.
+
+    The client is deliberately NOT used as a context manager: Starlette only runs
+    the app lifespan on `with TestClient(app)`, so the lifespan (production DB,
+    scheduler, sync loop, Telegram poller) never starts. These tests exercise JWT,
+    not the lifespan. main.py also guards the lifespan via is_testing() as a
+    second line of defense.
+    """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
@@ -97,41 +124,35 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app, raise_server_exceptions=False) as c:
-        yield c
-    app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 class TestAuthTokenEndpoint:
     def test_valid_credentials_returns_token(self, client: TestClient) -> None:
-        from sentinel.config import settings
-
-        resp = client.post(
-            "/auth/token",
-            data={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD},
-        )
+        resp = client.post("/auth/token", data=_admin_credentials())
         assert resp.status_code == 200
         body = resp.json()
         assert "access_token" in body
         assert body["token_type"] == "bearer"
 
     def test_wrong_password_returns_401(self, client: TestClient) -> None:
-        from sentinel.config import settings
-
+        creds = _admin_credentials()
         resp = client.post(
             "/auth/token",
-            data={"username": settings.ADMIN_USERNAME, "password": "wrong_password"},
+            data={"username": creds["username"], "password": "wrong_password"},
         )
         assert resp.status_code == 401
 
     def test_wrong_username_returns_401(self, client: TestClient) -> None:
-        from sentinel.config import settings
-
+        creds = _admin_credentials()
         resp = client.post(
             "/auth/token",
-            data={"username": "hacker", "password": settings.ADMIN_PASSWORD},
+            data={"username": "hacker", "password": creds["password"]},
         )
         assert resp.status_code == 401
 
@@ -144,12 +165,7 @@ class TestProtectedEndpoint:
     """DELETE /stop/{id} requires valid Bearer token."""
 
     def _get_token(self, client: TestClient) -> str:
-        from sentinel.config import settings
-
-        resp = client.post(
-            "/auth/token",
-            data={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD},
-        )
+        resp = client.post("/auth/token", data=_admin_credentials())
         return resp.json()["access_token"]
 
     def test_missing_token_returns_401(self, client: TestClient) -> None:
@@ -162,7 +178,9 @@ class TestProtectedEndpoint:
         )
         assert resp.status_code == 403
 
-    def test_valid_token_nonexistent_target_returns_404(self, client: TestClient) -> None:
+    def test_valid_token_nonexistent_target_returns_404(
+        self, client: TestClient
+    ) -> None:
         token = self._get_token(client)
         resp = client.delete(
             "/stop/999999", headers={"Authorization": f"Bearer {token}"}
@@ -172,8 +190,6 @@ class TestProtectedEndpoint:
 
 
 # ─── Newly protected endpoints — 401 / 403 coverage ─────────────────────────
-
-import pytest
 
 # (method, path) pairs for all newly protected endpoints
 _PROTECTED_ENDPOINTS = [
@@ -199,7 +215,9 @@ class TestAllEndpointsRequireAuth:
         self, client: TestClient, method: str, path: str
     ) -> None:
         resp = client.request(method, path)
-        assert resp.status_code == 401, f"{method} {path} should return 401 without token"
+        assert (
+            resp.status_code == 401
+        ), f"{method} {path} should return 401 without token"
 
     @pytest.mark.parametrize("method,path", _PROTECTED_ENDPOINTS)
     def test_invalid_token_returns_403(
@@ -208,7 +226,9 @@ class TestAllEndpointsRequireAuth:
         resp = client.request(
             method, path, headers={"Authorization": "Bearer bad.token.here"}
         )
-        assert resp.status_code == 403, f"{method} {path} should return 403 with invalid token"
+        assert (
+            resp.status_code == 403
+        ), f"{method} {path} should return 403 with invalid token"
 
 
 class TestPublicEndpoints:
