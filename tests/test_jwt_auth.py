@@ -76,8 +76,15 @@ class TestVerifyToken:
 
     def test_tampered_token_returns_none(self) -> None:
         token = create_access_token("admin", tenant_id=1, role="admin")
-        # Flip last character to tamper signature
-        tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+        # Alter the FIRST character of the signature, never the last one.
+        # In base64url the last char of a 32-byte HS256 signature carries only
+        # 4 significant bits (the other 2 are padding), so swapping 'A' for 'B'
+        # can leave the decoded signature unchanged and the token still valid
+        # (flaky: ~1 run in 16). The first char uses all 6 bits.
+        header, payload, signature = token.split(".")
+        flipped = "A" if signature[0] != "A" else "B"
+        tampered = ".".join([header, payload, flipped + signature[1:]])
+        assert tampered != token
         assert verify_token(tampered) is None
 
     def test_expired_token_returns_none(self) -> None:
