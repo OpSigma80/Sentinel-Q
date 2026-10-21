@@ -35,6 +35,15 @@ class SentinelScheduler:
             self._scheduler.start()
             logger.info("🚀 Motor de Vigilancia activo con Telemetría de Alta Precisión.")
 
+    def shutdown(self):
+        """Apaga de forma segura el scheduler y detiene sus hilos/tareas."""
+        if self._scheduler.running:
+            try:
+                self._scheduler.shutdown(wait=False)
+                logger.info("🛑 SentinelScheduler detenido correctamente.")
+            except Exception as e:
+                logger.error(f"Error al apagar el scheduler: {e}")
+
     def get_running_target_ids(self):
         """
         REPORTE DE ESTADO: Devuelve una lista de los IDs que están 
