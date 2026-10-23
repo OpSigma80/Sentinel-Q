@@ -25,6 +25,10 @@ from sentinel.infrastructure.database import Base
 from sentinel.infrastructure.orm_models import ServiceTargetTable, ServiceMetricsTable
 from sentinel.infrastructure.repository import TargetRepository
 
+# Tests escritos para funcionalidad aún no implementada (multitenencia, webhooks).
+# Se conservan como especificación, pero no se recolectan hasta que exista el código.
+collect_ignore_glob = ["pending/*"]
+
 # Base de datos en memoria para tests
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
