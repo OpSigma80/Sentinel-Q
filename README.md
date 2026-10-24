@@ -133,6 +133,7 @@ pytest -q
 - Rate limiting is applied to the login endpoint only.
 - A single admin account is configured through environment variables.
 - TLS is not built in: terminate HTTPS in a reverse proxy.
+- The bundled web dashboard does not send the JWT yet, so it cannot read or create targets until login support is added.
 
 ## Roadmap
 

@@ -32,7 +32,7 @@ class ServiceTarget(BaseModel):
     check_interval: int = Field(default=60, ge=5, le=86400)
     is_active: bool = True
     last_check: Optional[datetime] = None
-    status_code: Optional[int] = Field(None, ge=100, le=599)
+    status_code: Optional[int] = Field(default=None, ge=100, le=599)
 
     @field_validator("name")
     @classmethod
