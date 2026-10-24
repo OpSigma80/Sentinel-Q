@@ -39,8 +39,7 @@ from sentinel.services import (
 )
 
 APP_DESCRIPTION = (
-    "Professional-grade service monitoring engine "
-    "with intelligent health scoring."
+    "Professional-grade service monitoring engine " "with intelligent health scoring."
 )
 DEFAULT_CORS_ORIGINS = "http://localhost:8000,http://localhost:8501"
 
@@ -94,9 +93,7 @@ async def _init_database_schema(max_retries: int = 5, retry_delay: float = 2) ->
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2
             else:
-                logger.error(
-                    f"❌ Fallo crítico al conectar con la base de datos: {e}"
-                )
+                logger.error(f"❌ Fallo crítico al conectar con la base de datos: {e}")
 
 
 @asynccontextmanager
@@ -119,8 +116,7 @@ async def lifespan(app: FastAPI):
     sync_task = asyncio.create_task(sync_database_targets(), name="sync_targets")
     bot_task = asyncio.create_task(bot_poller.run(), name="telegram_poller")
     logger.success(
-        "🚀 SISTEMA OPERACIONAL: "
-        "Motor, sincronizador y bot Telegram en línea."
+        "🚀 SISTEMA OPERACIONAL: " "Motor, sincronizador y bot Telegram en línea."
     )
 
     try:
@@ -153,13 +149,14 @@ app = FastAPI(
 
 
 # --- RATE LIMITING (SlowAPI) ---
-async def rate_limit_exceeded_handler(
-    request: Request, exc: RateLimitExceeded
-) -> JSONResponse:
+async def rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONResponse:
     """429 con cuerpo {"detail": ...}, igual que el resto de errores de la API."""
+    # Starlette tipa los handlers como (Request, Exception); el detalle del
+    # límite (p. ej. "5 per 1 minute") viene en RateLimitExceeded.detail.
+    detail = getattr(exc, "detail", "")
     return JSONResponse(
         status_code=429,
-        content={"detail": f"Rate limit exceeded: {exc.detail}"},
+        content={"detail": f"Rate limit exceeded: {detail}"},
     )
 
 
