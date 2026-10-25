@@ -9,8 +9,12 @@ import os
 # DATABASE_URL: los tests nunca usan la BD del .env ni la del shell, y la suite
 # funciona en un clon limpio sin .env. Se asigna (no setdefault) a propósito,
 # para que una URL de producción exportada en el shell no llegue a los tests.
+# ADMIN_PASSWORD / JWT_SECRET_KEY: valores solo de prueba; config.py exige
+# credenciales reales y no tiene valores por defecto.
 os.environ["TESTING"] = "1"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["ADMIN_PASSWORD"] = "test-admin-password-pytest-only"
+os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-pytest-only-0123456789abcdef"
 
 import pytest
 from sqlalchemy import create_engine, text
