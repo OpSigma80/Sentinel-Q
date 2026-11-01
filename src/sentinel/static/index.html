@@ -319,6 +319,67 @@
             height: 300px;
             margin-bottom: 2rem;
         }
+
+        .navbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-signout {
+            padding: 0.5rem 0.75rem;
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background-color: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(10px);
+        }
+
+        .login-card {
+            width: min(420px, 100%);
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+        }
+
+        .login-card h2 {
+            margin-bottom: 0.5rem;
+            color: white;
+        }
+
+        .login-form {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .login-field {
+            display: grid;
+            gap: 0.375rem;
+        }
+
+        .login-field label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .login-message {
+            min-height: 1.25rem;
+            color: var(--accent-rose);
+            font-size: 0.875rem;
+        }
     </style>
 </head>
 <body>
@@ -336,13 +397,35 @@
                     <p class="subtitle">Enterprise Monitoring System</p>
                 </div>
             </div>
-            <div class="status-badge">
-                <div class="status-dot"></div>
-                <span class="status-text">System Live</span>
+            <div class="navbar-actions">
+                <div class="status-badge">
+                    <div class="status-dot"></div>
+                    <span class="status-text">System Live</span>
+                </div>
+                <button id="signout-button" class="btn btn-signout" type="button" style="display: none;">Sign out</button>
             </div>
         </div>
     </nav>
     
+    <div id="login-overlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="login-title">
+        <div class="login-card">
+            <h2 id="login-title">Sign in</h2>
+            <p class="section-subtitle">Access the Sentinel-Q dashboard</p>
+            <form id="login-form" class="login-form">
+                <div class="login-field">
+                    <label for="login-username">Username</label>
+                    <input id="login-username" name="username" type="text" autocomplete="username" required />
+                </div>
+                <div class="login-field">
+                    <label for="login-password">Password</label>
+                    <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+                </div>
+                <div id="login-message" class="login-message" role="alert"></div>
+                <button class="btn btn-primary" type="submit">Sign in</button>
+            </form>
+        </div>
+    </div>
+
     <!-- MAIN CONTENT -->
     <div class="container">
         <!-- METRICS CARDS -->
@@ -422,11 +505,10 @@
     </div>
     
     <script>
-        const AUTH_TOKEN = 'SENTINEL_PRO_SECRET_2026_V1';
         let latencyChart = null;
         let selectedServiceId = null;
-        
-        // Initialize chart
+        let refreshTimer = null;
+
         function initChart() {
             const ctx = document.getElementById('latency-chart').getContext('2d');
             latencyChart = new Chart(ctx, {
@@ -448,9 +530,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
                         x: {
                             ticks: { color: '#94a3b8', font: { size: 10 } },
@@ -464,166 +544,324 @@
                 }
             });
         }
-        
-        // Fetch metrics
+
+        function stopAutoRefresh() {
+            if (refreshTimer !== null) {
+                clearInterval(refreshTimer);
+                refreshTimer = null;
+            }
+        }
+
+        function startAutoRefresh() {
+            stopAutoRefresh();
+            refreshTimer = setInterval(fetchServices, 5000);
+        }
+
+        function clearSession(message) {
+            sessionStorage.removeItem('sentinel_access_token');
+            stopAutoRefresh();
+            selectedServiceId = null;
+            document.getElementById('signout-button').style.display = 'none';
+            document.getElementById('login-overlay').style.display = 'flex';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-message').textContent = message || '';
+        }
+
+        async function apiFetch(url, options = {}) {
+            const token = sessionStorage.getItem('sentinel_access_token');
+            const headers = new Headers(options.headers || {});
+            if (token) headers.set('Authorization', `Bearer ${token}`);
+
+            let response;
+            try {
+                response = await fetch(url, { ...options, headers });
+            } catch (error) {
+                throw new Error('Network request failed');
+            }
+
+            if (response.status === 401 || response.status === 403) {
+                clearSession('Session expired or invalid. Please sign in again.');
+                throw new Error('Session expired or invalid');
+            }
+            return response;
+        }
+
         async function fetchMetrics(serviceId) {
             if (!serviceId) return;
             try {
-                const res = await fetch(`/metrics/${serviceId}`);
+                const res = await apiFetch(`/metrics/${serviceId}`);
                 const data = await res.json();
-                
-                if (data.count === 0) return;
-                
-                const labels = data.metrics.map(m => {
-                    const d = new Date(m.timestamp);
-                    return d.toLocaleTimeString();
-                });
+                if (!res.ok || data.count === 0) return;
+
+                const labels = data.metrics.map(m => new Date(m.timestamp).toLocaleTimeString());
                 const values = data.metrics.map(m => m.response_time_ms);
                 const last = data.metrics[data.metrics.length - 1];
-                
+
                 latencyChart.data.labels = labels;
                 latencyChart.data.datasets[0].data = values;
                 latencyChart.update();
-                
+
                 const avg = values.reduce((a, b) => a + b, 0) / values.length;
                 const uptime = (data.metrics.filter(m => m.status_code >= 200 && m.status_code < 400).length / data.count) * 100;
-                
+
                 document.getElementById('avg-latency').textContent = avg.toFixed(2) + ' ms';
                 document.getElementById('uptime').textContent = uptime.toFixed(1) + '%';
                 document.getElementById('last-status').textContent = 'HTTP ' + last.status_code;
                 document.getElementById('last-status').style.color = last.status_code < 400 ? '#10b981' : '#f43f5e';
-                
                 document.getElementById('metrics-cards').style.display = 'grid';
                 document.getElementById('chart-section').style.display = 'block';
-            } catch (err) {
-                console.error("Error loading metrics:", err);
+            } catch (error) {
+                if (error.message !== 'Session expired or invalid') {
+                    document.getElementById('login-message').textContent = 'Unable to load dashboard data. Check your network connection.';
+                }
             }
         }
-        
-        // Fetch services
+
+        function appendTableTextRow(tbody, text) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 7;
+            cell.style.textAlign = 'center';
+            cell.style.padding = '2rem';
+            cell.textContent = text;
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        }
+
         async function fetchServices() {
             try {
-                const res = await fetch('/status');
+                const res = await apiFetch('/status');
                 const services = await res.json();
                 const tbody = document.getElementById('services-body');
-                
+                tbody.replaceChildren();
+
+                if (!res.ok) return;
                 if (services.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">No targets under surveillance</td></tr>';
+                    appendTableTextRow(tbody, 'No targets under surveillance');
                     return;
                 }
-                
+
                 const select = document.getElementById('service-select');
                 const currentVal = select.value;
-                select.innerHTML = services.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                select.replaceChildren();
+                for (const service of services) {
+                    const option = document.createElement('option');
+                    option.value = String(service.id);
+                    option.textContent = String(service.name);
+                    select.appendChild(option);
+                }
                 if (currentVal) select.value = currentVal;
                 if (!selectedServiceId) {
-                    selectedServiceId = services[0].id;
+                    selectedServiceId = String(services[0].id);
                     select.value = selectedServiceId;
                 }
-                
-                tbody.innerHTML = services.map(s => {
-                    const health = s.health_score || 0;
+
+                for (const service of services) {
+                    const health = Number(service.health_score || 0);
                     let healthClass = 'poor';
                     if (health >= 80) healthClass = 'excellent';
                     else if (health >= 50) healthClass = 'good';
-                    
-                    return `
-                    <tr>
-                        <td><strong>${s.name}</strong><br/><span style="font-size: 0.75rem; color: var(--text-muted);">ID: ${s.id}</span></td>
-                        <td><code style="background-color: #0f172a; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem;">${s.url}</code></td>
-                        <td style="text-align: center;">
-                            <span class="status-badge-small status-active">${s.is_active ? 'Monitoring' : 'Stopped'}</span>
-                        </td>
-                        <td style="text-align: center; font-weight: 500;">${s.status_code || '--'}</td>
-                        <td style="text-align: center;"><span class="health-score ${healthClass}">${health.toFixed(1)}%</span></td>
-                        <td style="text-align: center; font-size: 0.875rem;">${s.last_check ? new Date(s.last_check).toLocaleTimeString() : '--'}</td>
-                        <td style="text-align: right;">
-                            <div class="action-buttons">
-                                <button class="btn btn-secondary btn-stop" onclick="stopService(${s.id})">⏹️ Stop</button>
-                                <button class="btn btn-secondary btn-delete" onclick="deleteService(${s.id})">🗑️ Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                    `;
-                }).join('');
-                
+
+                    const row = document.createElement('tr');
+
+                    const serviceCell = document.createElement('td');
+                    const serviceName = document.createElement('strong');
+                    serviceName.textContent = String(service.name);
+                    serviceCell.appendChild(serviceName);
+                    serviceCell.appendChild(document.createElement('br'));
+                    const serviceId = document.createElement('span');
+                    serviceId.style.fontSize = '0.75rem';
+                    serviceId.style.color = 'var(--text-muted)';
+                    serviceId.textContent = `ID: ${service.id}`;
+                    serviceCell.appendChild(serviceId);
+
+                    const urlCell = document.createElement('td');
+                    const urlCode = document.createElement('code');
+                    urlCode.style.backgroundColor = '#0f172a';
+                    urlCode.style.padding = '0.25rem 0.5rem';
+                    urlCode.style.borderRadius = '0.25rem';
+                    urlCode.style.fontSize = '0.75rem';
+                    urlCode.textContent = String(service.url);
+                    urlCell.appendChild(urlCode);
+
+                    const statusCell = document.createElement('td');
+                    statusCell.style.textAlign = 'center';
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = 'status-badge-small status-active';
+                    statusBadge.textContent = service.is_active ? 'Monitoring' : 'Stopped';
+                    statusCell.appendChild(statusBadge);
+
+                    const httpCell = document.createElement('td');
+                    httpCell.style.textAlign = 'center';
+                    httpCell.style.fontWeight = '500';
+                    httpCell.textContent = service.status_code || '--';
+
+                    const healthCell = document.createElement('td');
+                    healthCell.style.textAlign = 'center';
+                    const healthSpan = document.createElement('span');
+                    healthSpan.className = `health-score ${healthClass}`;
+                    healthSpan.textContent = `${health.toFixed(1)}%`;
+                    healthCell.appendChild(healthSpan);
+
+                    const checkCell = document.createElement('td');
+                    checkCell.style.textAlign = 'center';
+                    checkCell.style.fontSize = '0.875rem';
+                    checkCell.textContent = service.last_check ? new Date(service.last_check).toLocaleTimeString() : '--';
+
+                    const actionsCell = document.createElement('td');
+                    actionsCell.style.textAlign = 'right';
+                    const actions = document.createElement('div');
+                    actions.className = 'action-buttons';
+                    const stopButton = document.createElement('button');
+                    stopButton.className = 'btn btn-secondary btn-stop';
+                    stopButton.textContent = '⏹️ Stop';
+                    stopButton.addEventListener('click', () => stopService(service.id));
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-secondary btn-delete';
+                    deleteButton.textContent = '🗑️ Delete';
+                    deleteButton.addEventListener('click', () => deleteService(service.id));
+                    actions.append(stopButton, deleteButton);
+                    actionsCell.appendChild(actions);
+
+                    row.append(serviceCell, urlCell, statusCell, httpCell, healthCell, checkCell, actionsCell);
+                    tbody.appendChild(row);
+                }
+
                 fetchMetrics(selectedServiceId);
-            } catch (err) {
-                console.error("Sync error:", err);
+            } catch (error) {
+                if (error.message !== 'Session expired or invalid') {
+                    document.getElementById('login-message').textContent = 'Unable to load dashboard data. Check your network connection.';
+                }
             }
         }
-        
-        // Stop service
+
         async function stopService(id) {
             if (confirm(`Stop monitoring service ID: ${id}?`)) {
                 try {
-                    const res = await fetch(`/stop/${id}`, {
-                        method: 'DELETE',
-                        headers: { 'X-Sentinel-Key': AUTH_TOKEN }
-                    });
+                    const res = await apiFetch(`/stop/${id}`, { method: 'DELETE' });
                     if (res.ok) fetchServices();
-                    else alert('Error stopping service');
-                } catch (err) {
-                    console.error("Error:", err);
+                    else if (!([401, 403].includes(res.status))) alert('Error stopping service');
+                } catch (error) {
+                    if (error.message !== 'Session expired or invalid') alert('Unable to stop service. Check your network connection.');
                 }
             }
         }
-        
-        // Delete service
+
         async function deleteService(id) {
             if (confirm(`Permanently delete service ID: ${id}? This cannot be undone.`)) {
                 try {
-                    const res = await fetch(`/targets/${id}`, { method: 'DELETE' });
+                    const res = await apiFetch(`/targets/${id}`, { method: 'DELETE' });
                     if (res.ok) fetchServices();
-                    else alert('Error deleting service');
-                } catch (err) {
-                    console.error("Error:", err);
+                    else if (!([401, 403].includes(res.status))) alert('Error deleting service');
+                } catch (error) {
+                    if (error.message !== 'Session expired or invalid') alert('Unable to delete service. Check your network connection.');
                 }
             }
         }
-        
-        // Create target
+
         async function createTarget() {
             const name = document.getElementById('new-name').value.trim();
             const url = document.getElementById('new-url').value.trim();
             const interval = parseInt(document.getElementById('new-interval').value, 10) || 60;
-            
+
             if (!name || !url) {
                 alert('Please fill in all fields');
                 return;
             }
-            
+
             try {
-                const res = await fetch('/targets', {
+                const res = await apiFetch('/targets', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, url, check_interval: interval, is_active: true })
                 });
-                
                 if (!res.ok) {
-                    alert('Error creating target');
+                    if (![401, 403].includes(res.status)) alert('Error creating target');
                     return;
                 }
-                
+
                 document.getElementById('new-name').value = '';
                 document.getElementById('new-url').value = '';
                 document.getElementById('new-interval').value = '60';
-                
                 fetchServices();
-            } catch (err) {
-                console.error("Error:", err);
+            } catch (error) {
+                if (error.message !== 'Session expired or invalid') alert('Unable to create target. Check your network connection.');
             }
         }
-        
-        // Initialize
+
+        async function submitLogin(event) {
+            event.preventDefault();
+            const message = document.getElementById('login-message');
+            message.textContent = '';
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const formData = new URLSearchParams();
+            formData.set('username', username);
+            formData.set('password', password);
+
+            try {
+                const response = await fetch('/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                if (response.status === 401) {
+                    document.getElementById('login-password').value = '';
+                    message.textContent = 'Invalid username or password';
+                    return;
+                }
+                if (response.status === 429) {
+                    document.getElementById('login-password').value = '';
+                    message.textContent = 'Too many attempts. Wait a minute and try again.';
+                    return;
+                }
+                if (!response.ok) {
+                    document.getElementById('login-password').value = '';
+                    message.textContent = 'Unable to sign in. Please try again.';
+                    return;
+                }
+
+                const data = await response.json();
+                if (!data.access_token) {
+                    message.textContent = 'Unable to sign in. Please try again.';
+                    return;
+                }
+                sessionStorage.setItem('sentinel_access_token', data.access_token);
+                document.getElementById('login-password').value = '';
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('signout-button').style.display = 'inline-block';
+                message.textContent = '';
+                fetchServices();
+                startAutoRefresh();
+            } catch (error) {
+                document.getElementById('login-password').value = '';
+                message.textContent = 'Network error. Please check your connection and try again.';
+            }
+        }
+
+        function signOut() {
+            clearSession('');
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+        }
+
         initChart();
-        fetchServices();
-        setInterval(fetchServices, 5000);
-        
+        document.getElementById('login-form').addEventListener('submit', submitLogin);
+        document.getElementById('signout-button').addEventListener('click', signOut);
         document.getElementById('service-select').addEventListener('change', (e) => {
             selectedServiceId = e.target.value;
             fetchMetrics(selectedServiceId);
         });
+
+        const existingToken = sessionStorage.getItem('sentinel_access_token');
+        if (existingToken) {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('signout-button').style.display = 'inline-block';
+            fetchServices();
+            startAutoRefresh();
+        } else {
+            document.getElementById('login-overlay').style.display = 'flex';
+        }
     </script>
 </body>
 </html>
