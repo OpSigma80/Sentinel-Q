@@ -40,3 +40,9 @@ def test_dashboard_does_not_inject_api_data_as_html() -> None:
     html = STATIC_INDEX.read_text(encoding="utf-8")
     for pattern in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
         assert pattern not in html
+
+
+def test_dashboard_forces_revalidation() -> None:
+    """Browsers must revalidate the page so a new deploy is never masked by a stale copy."""
+    resp = _client().get("/")
+    assert resp.headers.get("cache-control") == "no-cache"

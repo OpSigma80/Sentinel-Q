@@ -365,7 +365,11 @@ async def dashboard():
     static_dir = Path(__file__).parent / "static" / "index.html"
     if not static_dir.exists():
         raise HTTPException(status_code=404, detail="Dashboard file not found")
-    return FileResponse(str(static_dir), media_type="text/html")
+    return FileResponse(
+        str(static_dir),
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 static_path = Path(__file__).parent / "static"
