@@ -12,6 +12,7 @@ dependencies = [
     "httpx",
     "uvicorn[standard]",
     "python-dotenv",
+    "python-multipart",
     "pydantic-settings",
     "loguru",
     "sqlalchemy",
