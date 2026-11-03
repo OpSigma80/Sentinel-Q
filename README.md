@@ -2,6 +2,8 @@
 
 # 🛡️ Sentinel-Q
 
+[![Tests](https://github.com/OpSigma80/Sentinel-Q/actions/workflows/tests.yml/badge.svg)](https://github.com/OpSigma80/Sentinel-Q/actions)
+
 **Sentinel-Q** is a self-hosted service monitoring engine. It checks your HTTP endpoints on a schedule, scores their health, stores metrics in PostgreSQL and sends Telegram alerts when a service goes down or recovers. The API is protected with JWT.
 
 ![Overview](docs/screenshots/dashboard-overview.png)
@@ -133,12 +135,13 @@ pytest -q
 - Rate limiting is applied to the login endpoint only.
 - A single admin account is configured through environment variables.
 - TLS is not built in: terminate HTTPS in a reverse proxy.
-- The bundled web dashboard does not send the JWT yet, so it cannot read or create targets until login support is added.
+- The optional Streamlit dashboard (port 8501) does not send the JWT yet, so it cannot read data from the protected API.
 
 ## Roadmap
 
 - [ ] Multi-tenancy: tenants, per-tenant users and scoped targets (designed, with tests in `tests/pending/`; implementation being rebuilt)
 - [ ] Outbound webhooks for down/up events (same status)
+- [ ] Login support in the Streamlit dashboard
 - [ ] Public liveness endpoint
 - [ ] Rate limits on protected endpoints
 - [ ] Slack notifications
