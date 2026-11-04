@@ -237,6 +237,25 @@ class TestPollingMechanics:
 
         result = asyncio.run(run())
         assert result == []
+        assert poller._last_fetch_successful is False
+        assert poller._last_fetch_outcome == "http_401"
+
+    def test_fetch_updates_tracks_409_as_failure(self):
+        """A Telegram 409 conflict is recorded separately for backoff."""
+        import httpx
+
+        poller = build_poller()
+        mock_response = MagicMock()
+        mock_response.status_code = 409
+
+        async def run() -> list[dict]:
+            async with httpx.AsyncClient() as client:
+                with patch.object(client, "get", return_value=mock_response):
+                    return await poller._fetch_updates(client)
+
+        assert asyncio.run(run()) == []
+        assert poller._last_fetch_successful is False
+        assert poller._last_fetch_outcome == "http_409"
 
     def test_fetch_updates_parses_valid_response(self, monkeypatch):
         """A well-formed 200 response returns the updates list."""
@@ -257,6 +276,76 @@ class TestPollingMechanics:
 
         result = asyncio.run(run())
         assert result == expected
+        assert poller._last_fetch_successful is True
+        assert poller._last_fetch_outcome == "success"
+
+    def test_backoff_increases_and_resets_after_success(self):
+        """Failures use exponential delays capped at 60 seconds and reset on success."""
+        poller = build_poller()
+
+        poller._last_fetch_outcome = "http_401"
+        assert poller._handle_poll_result() == 1.0
+        assert poller._retry_delay == 2.0
+
+        poller._last_fetch_outcome = "http_409"
+        assert poller._handle_poll_result() == 2.0
+        assert poller._retry_delay == 4.0
+
+        poller._last_fetch_successful = True
+        poller._last_fetch_outcome = "success"
+        assert poller._handle_poll_result() is None
+        assert poller._retry_delay == 1.0
+
+    def test_backoff_is_capped_at_60_seconds(self):
+        """The retry delay never exceeds the configured maximum."""
+        poller = build_poller()
+        poller._retry_delay = 32.0
+        poller._last_fetch_outcome = "http_401"
+
+        assert poller._handle_poll_result() == 32.0
+        assert poller._retry_delay == 60.0
+
+        poller._last_fetch_outcome = "http_409"
+        assert poller._handle_poll_result() == 60.0
+        assert poller._retry_delay == 60.0
+
+    def test_run_sleeps_one_then_two_seconds_before_200(self, monkeypatch):
+        """The poll loop sleeps through 401/409 backoff and exits after a valid 200."""
+        import httpx
+
+        monkeypatch.setattr(poller_module.settings, "BOT_TOKEN", "test-token", raising=False)
+        poller = build_poller()
+        poller._running = False
+        outcomes = iter(("http_401", "http_409", "success"))
+
+        async def fake_fetch_updates(client: httpx.AsyncClient) -> list[dict]:
+            outcome = next(outcomes)
+            poller._last_fetch_outcome = outcome
+            poller._last_fetch_successful = outcome == "success"
+            if outcome == "success":
+                poller.stop()
+            return []
+
+        async_sleep = AsyncMock()
+        monkeypatch.setattr(poller_module.asyncio, "sleep", async_sleep)
+
+        with patch.object(poller, "_fetch_updates", side_effect=fake_fetch_updates):
+            asyncio.run(poller.run())
+
+        assert [call.args[0] for call in async_sleep.await_args_list] == [1.0, 2.0]
+        assert poller._retry_delay == 1.0
+
+    def test_same_http_error_is_logged_once_per_backoff_level(self, monkeypatch):
+        """Repeated identical failures do not emit duplicate warnings at the same level."""
+        poller = build_poller()
+        poller._last_fetch_outcome = "http_401"
+
+        warning = MagicMock()
+        monkeypatch.setattr(poller_module.logger, "warning", warning)
+
+        assert poller._handle_poll_result() == 1.0
+        assert poller._handle_poll_result() == 2.0
+        assert warning.call_count == 2
 
     def test_offset_advances_after_processing(self, monkeypatch):
         """The offset must be set to update_id + 1 after each processed update."""
