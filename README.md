@@ -73,6 +73,7 @@ Every endpoint except `/` (dashboard), `/static` and `POST /auth/token` requires
 | `GET` | `/status` | Status of active targets |
 | `GET` | `/metrics/{id}` | Metrics of one target |
 | `GET` | `/stats/{id}` | Statistics and health score of one target |
+| `GET` | `/healthz` | Public liveness probe returning `{"status":"ok"}` |
 | `GET` | `/health` | System health (database, scheduler, active targets) |
 | `GET` | `/telegram/status` | Status snapshot used by the Telegram bot |
 | `GET` | `/telegram/metrics` | Metrics snapshot used by the Telegram bot |
@@ -131,7 +132,6 @@ pytest -q
 
 ## Known limitations
 
-- All API endpoints require a JWT, including `/health`, so there is no unauthenticated probe for Kubernetes or Docker health checks yet.
 - Rate limiting is applied to the login endpoint only.
 - A single admin account is configured through environment variables.
 - TLS is not built in: terminate HTTPS in a reverse proxy.
@@ -142,7 +142,6 @@ pytest -q
 - [ ] Multi-tenancy: tenants, per-tenant users and scoped targets (designed, with tests in `tests/pending/`; implementation being rebuilt)
 - [ ] Outbound webhooks for down/up events (same status)
 - [ ] Login support in the Streamlit dashboard
-- [ ] Public liveness endpoint
 - [ ] Rate limits on protected endpoints
 - [ ] Slack notifications
 - [ ] Anomaly detection and OpenTelemetry tracing

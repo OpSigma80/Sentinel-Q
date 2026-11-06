@@ -246,7 +246,36 @@ class TestPublicEndpoints:
         # Returns HTML (200) or 404 if static file missing in test env — never 401/403
         assert resp.status_code not in (401, 403)
 
+    def test_dashboard_html_does_not_change(self, client: TestClient) -> None:
+        from sentinel.main import __file__ as main_file
+
+        static_index = Path(main_file).parent / "static" / "index.html"
+        resp = client.get("/")
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/html")
+        assert resp.content == static_index.read_bytes()
+
     def test_auth_token_endpoint_is_public(self, client: TestClient) -> None:
         # Missing credentials → 401 from business logic, not from JWT guard
         resp = client.post("/auth/token", data={"username": "x", "password": "y"})
         assert resp.status_code == 401  # credential error, not auth guard
+
+    def test_healthz_is_public_and_exact(self, client: TestClient) -> None:
+        resp = client.get("/healthz")
+
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+    def test_healthz_with_invalid_token_remains_public(
+        self, client: TestClient
+    ) -> None:
+        invalid_header = "Bearer invalid.token.here"
+
+        resp = client.get("/healthz", headers={"Authorization": invalid_header})
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+        # The same header is rejected by a protected endpoint.
+        protected = client.get("/status", headers={"Authorization": invalid_header})
+        assert protected.status_code == 403

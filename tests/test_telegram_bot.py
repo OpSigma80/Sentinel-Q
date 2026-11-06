@@ -85,6 +85,14 @@ class TestAuthorization:
 # ---------------------------------------------------------------------------
 
 class TestCommandRouting:
+    def test_start_command_returns_help_text(self, monkeypatch):
+        monkeypatch.setattr(poller_module.settings, "CHAT_ID", "12345", raising=False)
+        poller = build_poller()
+
+        asyncio.run(poller._dispatch_command("/start"))
+
+        poller._notifier._send_telegram_msg.assert_called_once_with(_HELP_TEXT)
+
     def test_non_command_message_is_ignored(self, monkeypatch):
         monkeypatch.setattr(poller_module.settings, "CHAT_ID", "12345", raising=False)
         poller = build_poller()

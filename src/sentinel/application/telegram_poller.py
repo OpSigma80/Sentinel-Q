@@ -166,6 +166,7 @@ class TelegramBotPoller:
             "/metrics": self._cmd_metrics,
             "/alerts": self._cmd_alerts,
             "/help": self._cmd_help,
+            "/start": self._cmd_help,
         }
 
         handler = handlers.get(command)

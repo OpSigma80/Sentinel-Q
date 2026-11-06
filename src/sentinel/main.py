@@ -360,6 +360,11 @@ async def telegram_alerts(hours: int = 24, db: Session = Depends(get_db)):
 # ====================================================================
 # RUTAS PÚBLICAS (Dashboard HTML y Estáticos)
 # ====================================================================
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.get("/")
 async def dashboard():
     static_dir = Path(__file__).parent / "static" / "index.html"
