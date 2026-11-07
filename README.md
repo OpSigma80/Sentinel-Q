@@ -22,7 +22,7 @@
 - **Security headers** and configurable CORS
 - **Persistent logs** (Loguru, daily rotation, 10-day retention)
 - **Graceful shutdown** of the scheduler, the Telegram poller and the database engine
-- **Docker Compose** deployment: API, Streamlit dashboard and PostgreSQL 15
+- **Docker Compose** deployment: API and PostgreSQL 15
 
 **Stack:** Python 3.13, FastAPI, SQLAlchemy 2, PostgreSQL 15, APScheduler, Pydantic v2, python-jose, passlib/bcrypt, slowapi, Loguru, Docker.
 
@@ -38,7 +38,6 @@ docker compose up -d --build
 
 - API docs: http://localhost:8000/docs
 - Dashboard: http://localhost:8000
-- Streamlit dashboard: http://localhost:8501
 
 ### Configuration
 
@@ -126,7 +125,7 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-177 tests covering JWT authentication, rate limiting, the repository and service layers, health scoring, alerting, the Telegram bot and input validation. They run against in-memory SQLite and need no `.env`; background tasks are disabled when `TESTING=1` (set by `tests/conftest.py`).
+196 tests covering JWT authentication, rate limiting, the repository and service layers, health scoring, alerting, the Telegram bot and input validation. They run against in-memory SQLite and need no `.env`; background tasks are disabled when `TESTING=1` (set by `tests/conftest.py`).
 
 ---
 
@@ -135,13 +134,12 @@ pytest -q
 - Rate limiting is applied to the login endpoint only.
 - A single admin account is configured through environment variables.
 - TLS is not built in: terminate HTTPS in a reverse proxy.
-- The optional Streamlit dashboard (port 8501) does not send the JWT yet, so it cannot read data from the protected API.
+- The legacy Streamlit dashboard (`sentinel_dashboard.py`) is not deployed: it does not support the JWT-protected API.
 
 ## Roadmap
 
 - [ ] Multi-tenancy: tenants, per-tenant users and scoped targets (designed, with tests in `tests/pending/`; implementation being rebuilt)
 - [ ] Outbound webhooks for down/up events (same status)
-- [ ] Login support in the Streamlit dashboard
 - [ ] Rate limits on protected endpoints
 - [ ] Slack notifications
 - [ ] Anomaly detection and OpenTelemetry tracing

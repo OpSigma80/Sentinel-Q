@@ -18,7 +18,7 @@ def test_loopback_ports_and_no_database_port(compose: dict) -> None:
     services = compose["services"]
 
     assert services["app"]["ports"] == ["127.0.0.1:8000:8000"]
-    assert services["dashboard"]["ports"] == ["127.0.0.1:8501:8501"]
+    assert "dashboard" not in services
     assert "ports" not in services["db"]
 
 

@@ -33,17 +33,3 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - .:/app
-
-  dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.dashboard
-    container_name: sentinel_dashboard
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file: .env
-    ports:
-      # Solo loopback: se accede por túnel SSH (ssh -L 8501:127.0.0.1:8501 ubuntu@IP).
-      - "127.0.0.1:8501:8501"
